@@ -21,6 +21,7 @@ sealed interface AppError {
     data object NoNetwork : AppError
     data object AiUnavailable : AppError
     data object AiNotConfigured : AppError
+    data object AiAccessDenied : AppError
     data object AiConsentRequired : AppError
     data object DocumentTooLarge : AppError
     data object DocumentNotFound : AppError

@@ -123,6 +123,7 @@
     <string name="ai_questions">Стоит уточнить</string>
     <string name="error_no_network">Нет подключения к интернету</string>
     <string name="error_ai_unavailable">AI-сервис временно недоступен</string>
+    <string name="error_ai_access_denied">Для AI-анализа подтвердите активную подписку</string>
     <string name="error_ai_too_large">Документ слишком большой для анализа</string>
 
     <!-- Настройки -->

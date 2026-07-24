@@ -26,13 +26,33 @@ Android-приложение для сканирования бумажных д
 ./gradlew :composeApp:connectedDebugAndroidTest  # инструментальные (нужен эмулятор)
 ```
 
-Release с настроенным AI и RuStore:
+URL backend задаются в локальном `local.properties`, который не попадает в Git:
 
-```bash
-./gradlew :composeApp:assembleRelease \
-  -PaiBaseUrl=https://your-proxy.example.com \
-  -ProstoreConsoleAppId=YOUR_CONSOLE_APP_ID
+```properties
+BACKEND_PATH=C\:\\Users\\Turbo\\StudioProjects\\LLMProxy
+DEBUG_BACKEND=http://192.168.0.107:8000
+RELEASE_BACKEND=https://your-backend.example.com
 ```
+
+`DEBUG_BACKEND` попадает только в debug-сборку, `RELEASE_BACKEND` — только
+в release. Для CI те же значения можно передать переменными окружения или
+Gradle properties `debugBackend` / `releaseBackend`.
+
+В debug используется mock RuStore: нажатие покупки создаёт фиктивный
+`purchaseId`, обменивает его через `POST /v1/auth/rustore` на серверный токен
+и сохраняет сессию локально. Сами AI-запросы при этом реальные и идут на
+`/v1/ai/summarize`, `/v1/ai/extract`, `/v1/ai/contract` с Bearer-токеном.
+Полностью локальный AI mock включается только вручную через
+`-PuseMockAi=true`.
+
+В debug-сборке сетевой обмен можно смотреть в Logcat по тегу `LLMProxy`.
+Лог содержит request ID, endpoint, попытку, HTTP-статус, длительность,
+размер ответа и количество распарсенных элементов. Тексты документов,
+JSON-тела, `purchaseId` и access token в Logcat не выводятся.
+
+Release использует настоящий RuStore Billing и после покупки или
+восстановления также обменивает `purchaseId` на серверный токен. Значение
+`RELEASE_BACKEND` должно быть HTTPS URL.
 
 ## Состояние функций (честно)
 
@@ -55,17 +75,19 @@ Release с настроенным AI и RuStore:
 - AI-экран (саммари/реквизиты/договор) с согласием на отправку текста и
   дисклеймером; текст-only, изображения не отправляются.
 - RuStore Billing в release DI: продукты, покупка, восстановление, проверка
-  подписки при запуске; лимиты Free-плана.
+  подписки при запуске и обмен покупки на серверный access token; лимиты
+  Free-плана.
 - Splash screen, adaptive icon, приватность (локальное хранение, исключение
   из бэкапа, «Удалить все данные», политика и условия в приложении).
 
 **Ограничения и допущения:**
 - Mock AI существует ТОЛЬКО в debug и только при флаге `USE_MOCK_AI`
-  (по умолчанию true в debug, всегда false в release). Release без
-  `-PaiBaseUrl` отключает AI-функции с понятным сообщением — фиктивные
+  (по умолчанию false, всегда false в release). Release без
+  `RELEASE_BACKEND` отключает AI-функции с понятным сообщением — фиктивные
   результаты не показываются.
-- Stub-подписка используется ТОЛЬКО в debug; release DI использует RuStore.
-  Покупки требуют публикации приложения в RuStore Console (sandbox-тестеры).
+- Mock RuStore используется ТОЛЬКО в debug, но серверная авторизация и
+  AI-запросы остаются настоящими. Release DI использует RuStore; покупки
+  требуют публикации приложения в RuStore Console (sandbox-тестеры).
 - Инструментальные тесты (детектор на 7 сценариях, OCR на 3 документах,
   Room DAO) не запускаются в CI без эмулятора — команда выше.
 - Автоснимок: архитектура готова (стабильная детекция N кадров), выключен.
@@ -105,11 +127,13 @@ Keystore и пароли в Git не хранятся. Создайте secrets:
     -Pandroid.injected.signing.key.password=$KEY_PASSWORD
 ```
 
-## Backend-прокси AI
+## Backend AI
 
-Каталог `backend/`: FastAPI-прокси (summarize/extract/contract), ключ
-провайдера только в env, лимит текста, таймауты, rate limiting, без текстов
-документов в логах. Запуск — `backend/README.md`.
+Рабочий backend — отдельный Kotlin/Ktor-проект `LLMProxy` по пути
+`BACKEND_PATH`. Он проверяет покупку, выдаёт собственный access token и
+возвращает структурированные JSON-ответы для трёх AI-режимов. Ключ
+провайдера хранится только в env сервера; тексты документов не пишутся в
+логи. Каталог `backend/` оставлен только как устаревший FastAPI-прототип.
 
 ## Архитектура
 
@@ -121,12 +145,12 @@ ru.aiscanner.docs/
     domain/          модели, geometry (QuadValidator/QuadGeometry),
                      logic (имена PDF, лимиты), контракты репозиториев, use cases
     data/            Room, файловое хранилище, OpenCV-обработка и детекция,
-                     Tesseract OCR, AI (Ktor/Mock/Disabled), PDF-экспорт,
-                     RuStore Billing, аналитика (без содержимого документов)
+                     Tesseract OCR, AI (Ktor/Mock/Disabled), backend-сессия,
+                     PDF-экспорт, RuStore Billing, аналитика
     presentation/    Compose-экраны + ViewModel (UiState/UiEffect):
                      Home, Camera, Crop, PageEditor, Document, Ocr, Ai,
                      Settings, Premium
-backend/             AI-прокси (FastAPI, Docker)
+backend/             устаревший FastAPI-прототип
 ```
 
 Ключевые решения: неразрушающая обработка (оригинал + параметры, живое

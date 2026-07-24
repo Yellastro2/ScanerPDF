@@ -128,7 +128,7 @@ class AiViewModel(
                 pendingMode = mode
                 _state.update { it.copy(isLoading = false, showConsentDialog = true) }
             }
-            is AppError.FreeLimitReached -> {
+            is AppError.FreeLimitReached, AppError.AiAccessDenied -> {
                 analytics.logEvent(AnalyticsEvent.PAYWALL_SHOWN)
                 _state.update { it.copy(isLoading = false) }
                 _effects.send(AiUiEffect.OpenPremium)

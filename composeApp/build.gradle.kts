@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,25 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.detekt)
 }
+
+val localProperties = Properties().apply {
+    val propertiesFile = rootProject.file("local.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use { load(it) }
+    }
+}
+
+fun backendUrl(localKey: String, gradleKey: String): String =
+    localProperties.getProperty(localKey)
+        ?: (project.findProperty(gradleKey) as String?)
+        ?: System.getenv(localKey)
+        ?: ""
+
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val debugBackendUrl = backendUrl("DEBUG_BACKEND", "debugBackend")
+val releaseBackendUrl = backendUrl("RELEASE_BACKEND", "releaseBackend")
 
 detekt {
     buildUponDefaultConfig = true
@@ -23,13 +44,6 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Базовый URL backend-прокси AI задаётся снаружи (Gradle property `aiBaseUrl`
-        // или переменная окружения AI_BASE_URL). Пустое значение = AI отключён.
-        // API-ключи провайдера в APK не хранятся (п. 9 ТЗ).
-        val aiBaseUrl: String = (project.findProperty("aiBaseUrl") as String?)
-            ?: System.getenv("AI_BASE_URL")
-            ?: ""
-        buildConfigField("String", "AI_BASE_URL", "\"$aiBaseUrl\"")
 
         // RuStore Billing: ID приложения в консоли RuStore и ID продуктов (см. README)
         val rustoreConsoleAppId = (project.findProperty("rustoreConsoleAppId") as String?)
@@ -63,11 +77,14 @@ android {
 
     buildTypes {
         debug {
-            // Mock AI разрешён только в debug и только явным флагом
-            val useMockAi = (project.findProperty("useMockAi") as String?) ?: "true"
+            buildConfigField("String", "AI_BASE_URL", debugBackendUrl.asBuildConfigString())
+            // По умолчанию debug использует настоящий backend с mock RuStore.
+            // Локальный MockAiDocumentService можно включить вручную.
+            val useMockAi = (project.findProperty("useMockAi") as String?) ?: "false"
             buildConfigField("boolean", "USE_MOCK_AI", useMockAi)
         }
         release {
+            buildConfigField("String", "AI_BASE_URL", releaseBackendUrl.asBuildConfigString())
             buildConfigField("boolean", "USE_MOCK_AI", "false")
             isMinifyEnabled = true
             isShrinkResources = true

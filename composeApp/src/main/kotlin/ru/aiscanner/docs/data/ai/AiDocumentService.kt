@@ -18,4 +18,10 @@ interface AiDocumentService {
 /** Текст, превышающий лимит, отклоняется до отправки (п. 9 ТЗ). */
 class DocumentTooLargeException : Exception()
 
+/** Серверный токен отсутствует, истек или подписка больше не активна. */
+class AiAccessDeniedException : Exception()
+
+/** Backend принял запрос, но не смог выполнить AI-анализ. */
+class AiBackendException : Exception()
+
 const val AI_MAX_TEXT_CHARS: Int = 60_000

@@ -16,8 +16,12 @@ import ru.aiscanner.docs.data.ai.AiResponseParser
 import ru.aiscanner.docs.data.ai.DisabledAiDocumentService
 import ru.aiscanner.docs.data.ai.KtorAiDocumentService
 import ru.aiscanner.docs.data.ai.MockAiDocumentService
+import ru.aiscanner.docs.data.backend.BackendApiLogger
+import ru.aiscanner.docs.data.backend.BackendAuthService
+import ru.aiscanner.docs.data.backend.BackendSessionStore
+import ru.aiscanner.docs.data.backend.DataStoreBackendSessionStore
+import ru.aiscanner.docs.data.billing.MockRuStoreSubscriptionRepository
 import ru.aiscanner.docs.data.billing.RuStoreSubscriptionRepository
-import ru.rustore.sdk.billingclient.RuStoreBillingClientFactory
 import ru.aiscanner.docs.data.analytics.Analytics
 import ru.aiscanner.docs.data.analytics.DebugAnalytics
 import ru.aiscanner.docs.data.db.AppDatabase
@@ -36,7 +40,6 @@ import ru.aiscanner.docs.data.repository.ExportRepositoryImpl
 import ru.aiscanner.docs.data.repository.ImageProcessingRepositoryImpl
 import ru.aiscanner.docs.data.repository.OcrRepositoryImpl
 import ru.aiscanner.docs.data.repository.SettingsRepositoryImpl
-import ru.aiscanner.docs.data.repository.StubSubscriptionRepository
 import ru.aiscanner.docs.domain.logic.FreePlanLimiter
 import ru.aiscanner.docs.domain.model.FreePlanLimits
 import ru.aiscanner.docs.domain.repository.AiRepository
@@ -75,6 +78,7 @@ import ru.aiscanner.docs.presentation.home.HomeViewModel
 import ru.aiscanner.docs.presentation.ocr.OcrViewModel
 import ru.aiscanner.docs.presentation.premium.PremiumViewModel
 import ru.aiscanner.docs.presentation.settings.SettingsViewModel
+import ru.rustore.sdk.billingclient.RuStoreBillingClientFactory
 
 val coreModule = module {
     single<DispatchersProvider> { DefaultDispatchersProvider() }
@@ -99,10 +103,19 @@ val dataModule = module {
     single { DocumentFileStore(androidContext()) }
     single<DocumentRepository> { DocumentRepositoryImpl(get(), get(), get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
-    // debug: заглушка без RuStore; release (production): только RuStore Billing
+    single { BackendApiLogger(enabled = BuildConfig.DEBUG) }
+    single<BackendSessionStore> { DataStoreBackendSessionStore(androidContext()) }
+    single { BackendAuthService(get(), BuildConfig.AI_BASE_URL, get(), get()) }
+    // debug: mock RuStore с настоящей backend-авторизацией;
+    // release: настоящая покупка RuStore с тем же обменом на access token.
     single<SubscriptionRepository> {
         if (BuildConfig.DEBUG) {
-            StubSubscriptionRepository()
+            MockRuStoreSubscriptionRepository(
+                backendAuth = get(),
+                sessionStore = get(),
+                monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,
+                yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
+            )
         } else {
             val client = RuStoreBillingClientFactory.create(
                 context = androidContext(),
@@ -111,6 +124,8 @@ val dataModule = module {
             )
             RuStoreSubscriptionRepository(
                 client = client,
+                backendAuth = get(),
+                sessionStore = get(),
                 monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
             )
@@ -132,7 +147,7 @@ val dataModule = module {
         val baseUrl = BuildConfig.AI_BASE_URL
         when {
             BuildConfig.DEBUG && BuildConfig.USE_MOCK_AI -> MockAiDocumentService()
-            baseUrl.isNotBlank() -> KtorAiDocumentService(get(), baseUrl)
+            baseUrl.isNotBlank() -> KtorAiDocumentService(get(), baseUrl, get(), get(), get())
             else -> DisabledAiDocumentService()
         }
     }

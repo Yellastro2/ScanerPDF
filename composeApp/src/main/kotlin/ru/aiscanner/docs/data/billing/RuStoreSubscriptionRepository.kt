@@ -1,9 +1,12 @@
 package ru.aiscanner.docs.data.billing
 
 import android.content.Intent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import ru.aiscanner.docs.data.backend.BackendAuthService
+import ru.aiscanner.docs.data.backend.BackendSessionStore
 import ru.aiscanner.docs.domain.model.PurchaseResult
 import ru.aiscanner.docs.domain.model.RestoreResult
 import ru.aiscanner.docs.domain.model.SubscriptionPeriod
@@ -29,6 +32,8 @@ interface BillingDeeplinkHandler {
  */
 class RuStoreSubscriptionRepository(
     private val client: RuStoreBillingClient,
+    private val backendAuth: BackendAuthService,
+    private val sessionStore: BackendSessionStore,
     private val monthlyProductId: String,
     private val yearlyProductId: String,
 ) : SubscriptionRepository, BillingDeeplinkHandler {
@@ -62,16 +67,26 @@ class RuStoreSubscriptionRepository(
         try {
             when (val result = client.purchases.purchaseProduct(productId).awaitResult()) {
                 is PaymentResult.Success -> {
-                    runCatching {
+                    try {
                         client.purchases.confirmPurchase(result.purchaseId).awaitResult()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Серверная проверка ниже остается источником истины для AI-доступа.
                     }
-                    refreshSubscriptionStatus()
+                    val session = backendAuth.exchangePurchase(
+                        purchaseId = result.purchaseId,
+                        productId = productId,
+                    )
+                    status.value = SubscriptionStatus.Premium(session.subscriptionValidUntilMillis)
                     PurchaseResult.Success
                 }
                 is PaymentResult.Cancelled -> PurchaseResult.Cancelled
                 is PaymentResult.Failure -> PurchaseResult.Error(null)
                 else -> PurchaseResult.Error(null)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             PurchaseResult.Error(null)
         }
@@ -80,6 +95,8 @@ class RuStoreSubscriptionRepository(
         try {
             refreshSubscriptionStatus()
             RestoreResult.Success(restored = status.value is SubscriptionStatus.Premium)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             RestoreResult.Error(null)
         }
@@ -88,14 +105,51 @@ class RuStoreSubscriptionRepository(
     override suspend fun refreshSubscriptionStatus() {
         val purchases = try {
             client.purchases.getPurchases().awaitResult()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             return
         }
-        val hasActive = purchases.any { purchase ->
+        val activePurchase = purchases.firstOrNull { purchase ->
             purchase.productId in productIds &&
                 purchase.purchaseState in setOf(PurchaseState.CONFIRMED, PurchaseState.PAID)
         }
-        status.value = if (hasActive) SubscriptionStatus.Premium(null) else SubscriptionStatus.Free
+        if (activePurchase == null) {
+            sessionStore.clear()
+            status.value = SubscriptionStatus.Free
+            return
+        }
+
+        val purchaseId = activePurchase.purchaseId?.takeIf { it.isNotBlank() }
+        val verifiedSession = if (purchaseId != null) {
+            try {
+                backendAuth.exchangePurchase(
+                    purchaseId = purchaseId,
+                    productId = activePurchase.productId,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+        if (verifiedSession != null) {
+            status.value = SubscriptionStatus.Premium(verifiedSession.subscriptionValidUntilMillis)
+            return
+        }
+
+        val cachedSession = sessionStore.read()
+        status.value = if (
+            cachedSession != null &&
+            cachedSession.productId == activePurchase.productId &&
+            cachedSession.hasActiveSubscription()
+        ) {
+            SubscriptionStatus.Premium(cachedSession.subscriptionValidUntilMillis)
+        } else {
+            SubscriptionStatus.Free
+        }
     }
 }
 

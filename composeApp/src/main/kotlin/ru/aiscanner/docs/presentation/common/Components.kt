@@ -99,6 +99,7 @@ fun AppError.toMessage(): String = when (this) {
     AppError.NoNetwork -> stringResource(R.string.error_no_network)
     AppError.AiUnavailable -> stringResource(R.string.error_ai_unavailable)
     AppError.AiNotConfigured -> stringResource(R.string.error_ai_not_configured)
+    AppError.AiAccessDenied -> stringResource(R.string.error_ai_access_denied)
     AppError.AiConsentRequired -> stringResource(R.string.ai_consent_title)
     AppError.DocumentTooLarge -> stringResource(R.string.error_ai_too_large)
     AppError.DocumentNotFound -> stringResource(R.string.error_document_not_found)
