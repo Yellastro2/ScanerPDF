@@ -16,7 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven("https://artifactory-external.vkpartner.ru/artifactory/maven")
+        maven("https://artifactory-external.vkpartner.ru/artifactory/maven-rustore-exposed/") {
+            content { includeGroupByRegex("ru\\.rustore.*") }
+        }
         maven("https://jitpack.io") {
             content { includeGroupByRegex("cz\\.adaptech.*") }
         }

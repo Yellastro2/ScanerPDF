@@ -32,27 +32,39 @@ URL backend задаются в локальном `local.properties`, кото�
 BACKEND_PATH=C\:\\Users\\Turbo\\StudioProjects\\LLMProxy
 DEBUG_BACKEND=http://192.168.0.107:8000
 RELEASE_BACKEND=https://your-backend.example.com
+
+# ID приложения из RuStore Console, не ID ключа Public API
+RUSTORE_CONSOLE_APP_ID=123456
+RUSTORE_MONTHLY_ID=premium_monthly
+RUSTORE_YEARLY_ID=premium_yearly
+
+# true принудительно оставляет debug на mock-покупках
+USE_MOCK_RUSTORE=false
 ```
 
 `DEBUG_BACKEND` попадает только в debug-сборку, `RELEASE_BACKEND` — только
 в release. Для CI те же значения можно передать переменными окружения или
 Gradle properties `debugBackend` / `releaseBackend`.
 
-В debug используется mock RuStore: нажатие покупки создаёт фиктивный
-`purchaseId`, обменивает его через `POST /v1/auth/rustore` на серверный токен
-и сохраняет сессию локально. Сами AI-запросы при этом реальные и идут на
-`/v1/ai/summarize`, `/v1/ai/extract`, `/v1/ai/contract` с Bearer-токеном.
-Полностью локальный AI mock включается только вручную через
-`-PuseMockAi=true`.
+Если `RUSTORE_CONSOLE_APP_ID` не задан, debug автоматически использует mock
+RuStore. После заполнения ID debug переключается на настоящий RuStore Pay SDK;
+вернуть mock можно через `USE_MOCK_RUSTORE=true`. Mock-покупка создаёт
+фиктивный `purchaseId`, но всё равно обменивает его через настоящий
+`POST /v1/auth/rustore`. Полностью локальный AI mock включается только вручную
+через `-PuseMockAi=true`.
+
+AI-запросы идут на `/v1/ai/summarize`, `/v1/ai/extract` и `/v1/ai/contract`
+с серверным Bearer-токеном. `purchaseId` передаётся только при покупке или
+восстановлении подписки, а не с каждым AI-запросом.
 
 В debug-сборке сетевой обмен можно смотреть в Logcat по тегу `LLMProxy`.
 Лог содержит request ID, endpoint, попытку, HTTP-статус, длительность,
 размер ответа и количество распарсенных элементов. Тексты документов,
 JSON-тела, `purchaseId` и access token в Logcat не выводятся.
 
-Release использует настоящий RuStore Billing и после покупки или
-восстановления также обменивает `purchaseId` на серверный токен. Значение
-`RELEASE_BACKEND` должно быть HTTPS URL.
+Release всегда использует настоящий RuStore Pay SDK и после покупки или
+восстановления обменивает `purchaseId` на серверный токен. Значение
+`RELEASE_BACKEND` должно быть HTTPS URL; mock-флаги в release игнорируются.
 
 ## Состояние функций (честно)
 
@@ -74,7 +86,7 @@ Release использует настоящий RuStore Billing и после п
   копирование, экспорт TXT.
 - AI-экран (саммари/реквизиты/договор) с согласием на отправку текста и
   дисклеймером; текст-only, изображения не отправляются.
-- RuStore Billing в release DI: продукты, покупка, восстановление, проверка
+- RuStore Pay SDK в release DI: продукты, покупка, восстановление, проверка
   подписки при запуске и обмен покупки на серверный access token; лимиты
   Free-плана.
 - Splash screen, adaptive icon, приватность (локальное хранение, исключение
@@ -86,8 +98,8 @@ Release использует настоящий RuStore Billing и после п
   `RELEASE_BACKEND` отключает AI-функции с понятным сообщением — фиктивные
   результаты не показываются.
 - Mock RuStore используется ТОЛЬКО в debug, но серверная авторизация и
-  AI-запросы остаются настоящими. Release DI использует RuStore; покупки
-  требуют публикации приложения в RuStore Console (sandbox-тестеры).
+  AI-запросы остаются настоящими. Настоящие покупки требуют регистрации
+  приложения, продуктов и тестовых пользователей в RuStore Console.
 - Инструментальные тесты (детектор на 7 сценариях, OCR на 3 документах,
   Room DAO) не запускаются в CI без эмулятора — команда выше.
 - Автоснимок: архитектура готова (стабильная детекция N кадров), выключен.
@@ -103,28 +115,56 @@ Release использует настоящий RuStore Billing и после п
 ## RuStore Console: какие продукты создать
 
 1. Создайте приложение в [RuStore Console](https://console.rustore.ru), получите
-   `consoleApplicationId` (число из URL приложения) — передаётся в сборку
-   через `-ProstoreConsoleAppId=...`.
+   ID приложения и запишите его в `local.properties` как
+   `RUSTORE_CONSOLE_APP_ID`. Это не ID ключа Public API.
 2. Раздел «Монетизация → Подписки»: создайте две подписки с ID
    `premium_monthly` (1 месяц) и `premium_yearly` (1 год). Другие ID можно
-   передать через `-ProstoreMonthlyId=... -ProstoreYearlyId=...`.
+   задать через `RUSTORE_MONTHLY_ID` и `RUSTORE_YEARLY_ID`.
 3. Добавьте тестовые аккаунты в sandbox для проверки покупок до публикации.
 4. Deeplink-схема оплат: `scannerai` (уже прописана в манифесте).
+5. Package name приложения в RuStore должен быть `ru.aiscanner.docs`, а
+   сертификат установленной сборки должен совпадать с сертификатом в RuStore.
+
+Приложение использует RuStore Pay SDK `10.5.0` через BOM `2026.06.01`.
+Подписки приобретаются одноэтапно (`ONE_STEP`), затем `purchaseId` и
+`productId` отправляются backend. Настройка SDK соответствует
+[официальной инструкции RuStore Pay](https://www.rustore.ru/help/sdk/pay/kotlin-java/10-5-0).
+
+Для тестирования настоящей оплаты debug APK нужно подписывать тем же ключом,
+который зарегистрирован в RuStore. Сборка читает его только из окружения:
+`KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Без этих
+переменных debug использует стандартный debug keystore, который обычно не
+совпадает с опубликованной подписью.
+
+## Backend: настоящая проверка RuStore
+
+Секреты RuStore нельзя добавлять в `local.properties`, Gradle или APK. Они
+задаются в `C:\Users\Turbo\StudioProjects\LLMProxy\.env.local`:
+
+```properties
+RUSTORE_MODE=api
+RUSTORE_TEST=true
+RUSTORE_API_ID=put_rustore_key_id_here
+RUSTORE_PRIVATE_KEY=put_pkcs8_private_key_here
+```
+
+`RUSTORE_TEST=true` включает sandbox, для production используется `false`.
+`RUSTORE_API_ID` — ID ключа Public API, а не ID приложения. Приватный RSA-ключ
+должен быть PKCS#8 в Base64 или PEM и хранится только на сервере. Backend
+проверяет подписку через RuStore API V4, сохраняет статус в SQLite и выдаёт
+приложению собственный access token.
 
 ## Подпись release через GitHub Secrets
 
 Keystore и пароли в Git не хранятся. Создайте secrets:
 `KEYSTORE_BASE64` (base64 файла .jks), `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
-`KEY_PASSWORD`, и в release-workflow декодируйте keystore и передайте
-параметры в Gradle:
+`KEY_PASSWORD`, `RELEASE_BACKEND` и `RUSTORE_CONSOLE_APP_ID`. Release-workflow
+декодирует keystore во временный файл и передаёт его путь через
+`KEYSTORE_FILE`:
 
 ```yaml
 - run: echo "$KEYSTORE_BASE64" | base64 -d > release.jks
-- run: ./gradlew :composeApp:assembleRelease \
-    -Pandroid.injected.signing.store.file=$PWD/release.jks \
-    -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-    -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-    -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+- run: KEYSTORE_FILE=$PWD/release.jks ./gradlew :composeApp:assembleRelease
 ```
 
 ## Backend AI
@@ -146,7 +186,7 @@ ru.aiscanner.docs/
                      logic (имена PDF, лимиты), контракты репозиториев, use cases
     data/            Room, файловое хранилище, OpenCV-обработка и детекция,
                      Tesseract OCR, AI (Ktor/Mock/Disabled), backend-сессия,
-                     PDF-экспорт, RuStore Billing, аналитика
+                     PDF-экспорт, RuStore Pay SDK, аналитика
     presentation/    Compose-экраны + ViewModel (UiState/UiEffect):
                      Home, Camera, Crop, PageEditor, Document, Ocr, Ai,
                      Settings, Premium

@@ -16,17 +16,32 @@ val localProperties = Properties().apply {
     }
 }
 
-fun backendUrl(localKey: String, gradleKey: String): String =
+fun configuredValue(
+    localKey: String,
+    gradleKey: String,
+    defaultValue: String = "",
+): String =
     localProperties.getProperty(localKey)
         ?: (project.findProperty(gradleKey) as String?)
         ?: System.getenv(localKey)
-        ?: ""
+        ?: defaultValue
 
 fun String.asBuildConfigString(): String =
     "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-val debugBackendUrl = backendUrl("DEBUG_BACKEND", "debugBackend")
-val releaseBackendUrl = backendUrl("RELEASE_BACKEND", "releaseBackend")
+val debugBackendUrl = configuredValue("DEBUG_BACKEND", "debugBackend")
+val releaseBackendUrl = configuredValue("RELEASE_BACKEND", "releaseBackend")
+val rustoreConsoleAppId = configuredValue("RUSTORE_CONSOLE_APP_ID", "rustoreConsoleAppId")
+val rustoreMonthlyId = configuredValue(
+    "RUSTORE_MONTHLY_ID",
+    "rustoreMonthlyId",
+    "premium_monthly",
+)
+val rustoreYearlyId = configuredValue(
+    "RUSTORE_YEARLY_ID",
+    "rustoreYearlyId",
+    "premium_yearly",
+)
 
 detekt {
     buildUponDefaultConfig = true
@@ -45,19 +60,22 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // RuStore Billing: ID приложения в консоли RuStore и ID продуктов (см. README)
-        val rustoreConsoleAppId = (project.findProperty("rustoreConsoleAppId") as String?)
-            ?: System.getenv("RUSTORE_CONSOLE_APP_ID") ?: ""
-        buildConfigField("String", "RUSTORE_CONSOLE_APP_ID", "\"$rustoreConsoleAppId\"")
+        // RuStore Pay: ID приложения в консоли RuStore и ID продуктов (см. README)
+        buildConfigField(
+            "String",
+            "RUSTORE_CONSOLE_APP_ID",
+            rustoreConsoleAppId.asBuildConfigString(),
+        )
+        resValue("string", "rustore_console_application_id", rustoreConsoleAppId)
         buildConfigField(
             "String",
             "RUSTORE_MONTHLY_ID",
-            "\"${(project.findProperty("rustoreMonthlyId") as String?) ?: "premium_monthly"}\"",
+            rustoreMonthlyId.asBuildConfigString(),
         )
         buildConfigField(
             "String",
             "RUSTORE_YEARLY_ID",
-            "\"${(project.findProperty("rustoreYearlyId") as String?) ?: "premium_yearly"}\"",
+            rustoreYearlyId.asBuildConfigString(),
         )
     }
 
@@ -78,14 +96,24 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "AI_BASE_URL", debugBackendUrl.asBuildConfigString())
-            // По умолчанию debug использует настоящий backend с mock RuStore.
+            val useMockRuStore = configuredValue(
+                localKey = "USE_MOCK_RUSTORE",
+                gradleKey = "useMockRuStore",
+                defaultValue = rustoreConsoleAppId.isBlank().toString(),
+            )
+            buildConfigField("boolean", "USE_MOCK_RUSTORE", useMockRuStore)
+            // Без RUSTORE_CONSOLE_APP_ID debug остаётся на mock RuStore.
             // Локальный MockAiDocumentService можно включить вручную.
             val useMockAi = (project.findProperty("useMockAi") as String?) ?: "false"
             buildConfigField("boolean", "USE_MOCK_AI", useMockAi)
+            if (!System.getenv("KEYSTORE_FILE").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             buildConfigField("String", "AI_BASE_URL", releaseBackendUrl.asBuildConfigString())
             buildConfigField("boolean", "USE_MOCK_AI", "false")
+            buildConfigField("boolean", "USE_MOCK_RUSTORE", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -154,7 +182,8 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.splashscreen)
     implementation(libs.tesseract4android)
-    implementation(libs.rustore.billing)
+    implementation(platform(libs.rustore.bom))
+    implementation(libs.rustore.pay)
 
     implementation(libs.coil.compose)
     implementation(libs.coroutines.android)

@@ -20,6 +20,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -33,6 +34,13 @@
                 <data android:scheme="scannerai" />
             </intent-filter>
         </activity>
+
+        <meta-data
+            android:name="console_app_id_value"
+            android:value="@string/rustore_console_application_id" />
+        <meta-data
+            android:name="sdk_pay_scheme_value"
+            android:value="scannerai" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -78,7 +78,7 @@ import ru.aiscanner.docs.presentation.home.HomeViewModel
 import ru.aiscanner.docs.presentation.ocr.OcrViewModel
 import ru.aiscanner.docs.presentation.premium.PremiumViewModel
 import ru.aiscanner.docs.presentation.settings.SettingsViewModel
-import ru.rustore.sdk.billingclient.RuStoreBillingClientFactory
+import ru.rustore.sdk.pay.RuStorePayClient
 
 val coreModule = module {
     single<DispatchersProvider> { DefaultDispatchersProvider() }
@@ -106,10 +106,9 @@ val dataModule = module {
     single { BackendApiLogger(enabled = BuildConfig.DEBUG) }
     single<BackendSessionStore> { DataStoreBackendSessionStore(androidContext()) }
     single { BackendAuthService(get(), BuildConfig.AI_BASE_URL, get(), get()) }
-    // debug: mock RuStore с настоящей backend-авторизацией;
-    // release: настоящая покупка RuStore с тем же обменом на access token.
+    // Mock доступен только в debug; release всегда использует RuStore Pay SDK.
     single<SubscriptionRepository> {
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG && BuildConfig.USE_MOCK_RUSTORE) {
             MockRuStoreSubscriptionRepository(
                 backendAuth = get(),
                 sessionStore = get(),
@@ -117,13 +116,8 @@ val dataModule = module {
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
             )
         } else {
-            val client = RuStoreBillingClientFactory.create(
-                context = androidContext(),
-                consoleApplicationId = BuildConfig.RUSTORE_CONSOLE_APP_ID,
-                deeplinkScheme = "scannerai",
-            )
             RuStoreSubscriptionRepository(
-                client = client,
+                client = RuStorePayClient.instance,
                 backendAuth = get(),
                 sessionStore = get(),
                 monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,

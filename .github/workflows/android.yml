@@ -192,7 +192,7 @@ jobs:
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+      RELEASE_BACKEND: ${{ secrets.RELEASE_BACKEND }}
       RUSTORE_CONSOLE_APP_ID: ${{ secrets.RUSTORE_CONSOLE_APP_ID }}
     steps:
       - name: Checkout

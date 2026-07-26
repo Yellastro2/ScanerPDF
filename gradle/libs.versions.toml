@@ -22,7 +22,7 @@ opencv = "4.10.0"
 exifinterface = "1.3.7"
 splashscreen = "1.0.1"
 tesseract4android = "4.9.0"
-rustoreBilling = "6.1.0"
+rustoreBom = "2026.06.01"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -61,7 +61,8 @@ opencv = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
 androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 androidx-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 tesseract4android = { group = "cz.adaptech.tesseract4android", name = "tesseract4android", version.ref = "tesseract4android" }
-rustore-billing = { group = "ru.rustore.sdk", name = "billingclient", version.ref = "rustoreBilling" }
+rustore-bom = { group = "ru.rustore.sdk", name = "bom", version.ref = "rustoreBom" }
+rustore-pay = { group = "ru.rustore.sdk", name = "pay" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

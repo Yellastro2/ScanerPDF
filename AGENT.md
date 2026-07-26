@@ -4,7 +4,7 @@
 
 - Название проекта: `ScannerAI` / `Сканер документов AI: PDF`.
 - Тип проекта: Android-приложение для сканирования документов с локальным OCR и AI-анализом через backend-прокси.
-- Основной стек: Kotlin, Android, Jetpack Compose, Clean Architecture, Koin, Room, CameraX, OpenCV, Tesseract, Ktor client, RuStore Billing.
+- Основной стек: Kotlin, Android, Jetpack Compose, Clean Architecture, Koin, Room, CameraX, OpenCV, Tesseract, Ktor client, RuStore Pay SDK.
 - Backend: отдельный Kotlin/Ktor-сервис `LLMProxy`, путь к нему задаётся ключом `BACKEND_PATH` в `local.properties`.
 - Основной Android-модуль: `composeApp`.
 - Основной пакет Android-кода: `ru.aiscanner.docs`.
@@ -49,7 +49,7 @@
 - Не писать в логи тексты документов, OCR-результаты целиком, изображения, PDF, персональные данные, ключи и ответы провайдера, если они могут содержать пользовательский текст.
 - AI-функции отправляют только текст после явного согласия пользователя; изображения документов не отправляются.
 - Release без `RELEASE_BACKEND` должен отключать AI-функции понятным образом, а не показывать фиктивные результаты.
-- Mock AI и stub-подписки допустимы только в debug. В release не добавлять обходы реального backend или RuStore Billing.
+- Mock AI и stub-подписки допустимы только в debug. В release не добавлять обходы реального backend или RuStore Pay SDK.
 - Keystore и пароли подписи использовать только из переменных окружения или GitHub Secrets.
 
 ## Android Code Rules
@@ -98,7 +98,7 @@
 
 ## Documentation Rules
 
-- Если изменение затрагивает пользовательский сценарий, сборку, backend API, RuStore Billing, AI-настройки или приватность, обновить соответствующий `README.md`.
+- Если изменение затрагивает пользовательский сценарий, сборку, backend API, RuStore Pay SDK, AI-настройки или приватность, обновить соответствующий `README.md`.
 - Если в проекте появится `roadmap.md`, перед реализацией новых фич и инфраструктурных задач сверяться с ним, но не начинать задачи из него автоматически.
 - Если задача реализует пункт из `roadmap.md`, обновить этот пункт отметкой `реализовано YYYY-MM-DD`.
 - Документацию по сложным внутренним механизмам хранить в `docs/`.

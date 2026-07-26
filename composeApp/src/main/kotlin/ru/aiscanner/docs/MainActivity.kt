@@ -15,7 +15,7 @@ import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 import ru.aiscanner.docs.data.analytics.Analytics
 import ru.aiscanner.docs.data.analytics.AnalyticsEvent
-import ru.aiscanner.docs.data.billing.BillingDeeplinkHandler
+import ru.aiscanner.docs.data.billing.PayDeeplinkHandler
 import ru.aiscanner.docs.domain.repository.SubscriptionRepository
 import ru.aiscanner.docs.presentation.navigation.AppNavGraph
 import ru.aiscanner.docs.presentation.settings.SettingsViewModel
@@ -32,10 +32,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             analytics.logEvent(AnalyticsEvent.APP_OPENED)
-            // Проверка ранее купленной подписки при запуске (п. 11 ТЗ)
             lifecycleScope.launch { runCatching { subscriptions.refreshSubscriptionStatus() } }
+            (subscriptions as? PayDeeplinkHandler)?.onNewIntent(intent)
         }
-        (subscriptions as? BillingDeeplinkHandler)?.onNewIntent(intent)
         setContent {
             val settingsViewModel: SettingsViewModel = koinViewModel()
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -48,6 +47,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        (subscriptions as? BillingDeeplinkHandler)?.onNewIntent(intent)
+        (subscriptions as? PayDeeplinkHandler)?.onNewIntent(intent)
     }
 }
