@@ -21,6 +21,7 @@ import com.nla.AIscanerPDF.data.backend.BackendAuthService
 import com.nla.AIscanerPDF.data.backend.BackendSessionStore
 import com.nla.AIscanerPDF.data.backend.DataStoreBackendSessionStore
 import com.nla.AIscanerPDF.data.billing.MockRuStoreSubscriptionRepository
+import com.nla.AIscanerPDF.data.billing.RuStorePayLogger
 import com.nla.AIscanerPDF.data.billing.RuStoreSubscriptionRepository
 import com.nla.AIscanerPDF.data.analytics.Analytics
 import com.nla.AIscanerPDF.data.analytics.DebugAnalytics
@@ -104,11 +105,16 @@ val dataModule = module {
     single<DocumentRepository> { DocumentRepositoryImpl(get(), get(), get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
     single { BackendApiLogger(enabled = BuildConfig.DEBUG) }
+    single { RuStorePayLogger(enabled = BuildConfig.DEBUG) }
     single<BackendSessionStore> { DataStoreBackendSessionStore(androidContext()) }
     single { BackendAuthService(get(), BuildConfig.AI_BASE_URL, get(), get()) }
     // Mock доступен только в debug; release всегда использует RuStore Pay SDK.
     single<SubscriptionRepository> {
+        val ruStoreLogger = get<RuStorePayLogger>()
         if (BuildConfig.DEBUG && BuildConfig.USE_MOCK_RUSTORE) {
+            ruStoreLogger.event(
+                "repository SELECTED mode=mock package=${androidContext().packageName}",
+            )
             MockRuStoreSubscriptionRepository(
                 backendAuth = get(),
                 sessionStore = get(),
@@ -116,10 +122,16 @@ val dataModule = module {
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
             )
         } else {
+            ruStoreLogger.event(
+                "repository SELECTED mode=real package=${androidContext().packageName} " +
+                    "consoleAppId=${BuildConfig.RUSTORE_CONSOLE_APP_ID} " +
+                    "products=${BuildConfig.RUSTORE_MONTHLY_ID},${BuildConfig.RUSTORE_YEARLY_ID}",
+            )
             RuStoreSubscriptionRepository(
                 client = RuStorePayClient.instance,
                 backendAuth = get(),
                 sessionStore = get(),
+                logger = ruStoreLogger,
                 monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
             )
