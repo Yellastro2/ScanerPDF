@@ -1,22 +1,22 @@
 package com.nla.AIscanerPDF.presentation.premium
 
+import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,12 +42,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nla.AIscanerPDF.domain.model.ThemeMode
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
-
-private val PremiumBlue = Color(0xFF1F5EFF)
-private val PremiumCyan = Color(0xFF18BDE8)
-private val PremiumSurface = Color(0xFFF1F4FA)
-private val PremiumText = Color(0xFF222735)
 
 /**
  * Изолированный макет paywall для просмотра в Compose Preview.
@@ -56,14 +52,23 @@ private val PremiumText = Color(0xFF222735)
  */
 @Composable
 fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val isDarkTheme = isSystemInDarkTheme()
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState()),
     ) {
-        PremiumHero()
-        PremiumFeatures()
+        PremiumHero(
+            primary = colors.primary,
+            primaryContainer = colors.primaryContainer,
+            onPrimary = colors.onPrimary,
+            onSurface = colors.onSurface,
+            isDarkTheme = isDarkTheme,
+        )
+        PremiumFeatures(colors.primary, colors.onPrimary)
 
         Text(
             text = "Восстановить покупки",
@@ -71,7 +76,7 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 28.dp)
                 .clickable { },
-            color = PremiumBlue,
+            color = colors.primary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             textDecoration = TextDecoration.Underline,
@@ -85,6 +90,8 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                 title = "1 месяц",
                 price = "299 ₽ в месяц",
                 priceCaption = "Регулярное продление",
+                colors = colors,
+                isDarkTheme = isDarkTheme,
             )
             PremiumPlanCard(
                 title = "1 год",
@@ -93,6 +100,8 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                 oldPrice = "3 588 ₽",
                 discount = "Скидка 58%",
                 highlighted = true,
+                colors = colors,
+                isDarkTheme = isDarkTheme,
             )
             PremiumPlanCard(
                 title = "Навсегда",
@@ -100,6 +109,8 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                 priceCaption = "Единоразовый платёж",
                 oldPrice = "9 966 ₽",
                 discount = "Скидка 70%",
+                colors = colors,
+                isDarkTheme = isDarkTheme,
             )
 
             Button(
@@ -109,7 +120,10 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                     .height(58.dp)
                     .padding(top = 6.dp),
                 shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PremiumBlue),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.primary,
+                    contentColor = colors.onPrimary,
+                ),
             ) {
                 Text(
                     text = "Подписаться",
@@ -121,7 +135,7 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
                 text = "Отмена подписки в любое время",
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
             )
         }
@@ -129,37 +143,49 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PremiumHero() {
+private fun PremiumHero(
+    primary: Color,
+    primaryContainer: Color,
+    onPrimary: Color,
+    onSurface: Color,
+    isDarkTheme: Boolean,
+) {
+    val heroColor = if (isDarkTheme) primaryContainer else primary
+    val heroContentColor = if (isDarkTheme) onSurface else onPrimary
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(250.dp)
             .clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF7ADAF5), PremiumBlue, Color(0xFF173EAF)),
-                    start = Offset.Zero,
-                    end = Offset(900f, 700f),
-                ),
-            ),
+            .background(heroColor),
     ) {
-        DecorativeDocument(modifier = Modifier.align(Alignment.TopStart).padding(start = 30.dp, top = 18.dp).rotate(-14f))
-        DecorativeDocument(modifier = Modifier.align(Alignment.TopEnd).padding(end = 36.dp, top = 14.dp).rotate(11f))
-        DecorativeDocument(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).rotate(5f))
+        DecorativeDocument(
+            primary = primary,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 30.dp, top = 18.dp).rotate(-14f),
+        )
+        DecorativeDocument(
+            primary = primary,
+            modifier = Modifier.align(Alignment.TopEnd).padding(end = 36.dp, top = 14.dp).rotate(11f),
+        )
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x990D2881)))),
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.26f)),
+                    ),
+                ),
         )
         Column(
             modifier = Modifier
-                .align(Alignment.Center)
-                .padding(horizontal = 24.dp),
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 24.dp, vertical = 30.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = "БОЛЬШЕ ВОЗМОЖНОСТЕЙ",
-                color = Color.White,
+                color = heroContentColor,
                 fontSize = 25.sp,
                 lineHeight = 30.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -168,7 +194,7 @@ private fun PremiumHero() {
             Text(
                 text = "с Scanner AI Premium",
                 modifier = Modifier.padding(top = 8.dp),
-                color = Color.White.copy(alpha = 0.94f),
+                color = heroContentColor.copy(alpha = 0.90f),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -177,7 +203,7 @@ private fun PremiumHero() {
 }
 
 @Composable
-private fun DecorativeDocument(modifier: Modifier = Modifier) {
+private fun DecorativeDocument(primary: Color, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(width = 118.dp, height = 158.dp)
@@ -195,7 +221,7 @@ private fun DecorativeDocument(modifier: Modifier = Modifier) {
                 )
                 repeat(5) { line ->
                     drawRoundRect(
-                        color = PremiumBlue.copy(alpha = 0.23f),
+                        color = primary.copy(alpha = 0.23f),
                         topLeft = Offset(size.width * .27f, size.height * (.18f + line * .12f)),
                         size = Size(size.width * .46f, 5.dp.toPx()),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
@@ -207,9 +233,9 @@ private fun DecorativeDocument(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PremiumFeatures() {
+private fun PremiumFeatures(primary: Color, onPrimary: Color) {
     val features = listOf(
-        "Интелектуальное самари" to "Полный анализ документа",
+        "Умное самари" to "Полный анализ документа",
         "OCR без лимитов" to "Распознавайте всё",
         "AI-реквизиты" to "Извлекает главное",
     )
@@ -221,40 +247,47 @@ private fun PremiumFeatures() {
             .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        features.forEachIndexed { index, feature ->
+        features.forEach { feature ->
             FeatureCard(
                 title = feature.first,
                 subtitle = feature.second,
-                accent = if (index == 1) PremiumCyan else PremiumBlue,
+                primary = primary,
+                onPrimary = onPrimary,
             )
         }
     }
 }
 
 @Composable
-private fun FeatureCard(title: String, subtitle: String, accent: Color) {
+private fun FeatureCard(title: String, subtitle: String, primary: Color, onPrimary: Color) {
     Box(
         modifier = Modifier
             .width(156.dp)
             .height(132.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.56f))))
+            .background(Brush.linearGradient(listOf(primary, primary.copy(alpha = 0.72f))))
             .padding(14.dp),
     ) {
         Box(
             modifier = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = .22f)),
+                .background(onPrimary.copy(alpha = .18f))
+                .align(Alignment.TopEnd),
         ) {
             Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-                drawCircle(Color.White.copy(alpha = .9f), radius = size.minDimension / 2)
-                drawCircle(accent, radius = size.minDimension / 5)
+                drawCircle(onPrimary.copy(alpha = .9f), radius = size.minDimension / 2)
+                drawCircle(primary, radius = size.minDimension / 5)
             }
         }
-        Column(Modifier.align(Alignment.BottomStart)) {
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-            Text(subtitle, color = Color.White.copy(alpha = .82f), style = MaterialTheme.typography.labelSmall)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 50.dp)
+                .align(Alignment.TopStart),
+        ) {
+            Text(title, color = onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+            Text(subtitle, color = onPrimary.copy(alpha = .82f), style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -267,24 +300,33 @@ private fun PremiumPlanCard(
     oldPrice: String? = null,
     discount: String? = null,
     highlighted: Boolean = false,
+    colors: androidx.compose.material3.ColorScheme,
+    isDarkTheme: Boolean,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = if (highlighted) Color(0xFFEAF0FF) else PremiumSurface,
+        color = if (highlighted) {
+            colors.primaryContainer
+        } else {
+            colors.primaryContainer.copy(alpha = if (isDarkTheme) 0.46f else 0.38f)
+        },
         shape = RoundedCornerShape(22.dp),
-        border = if (highlighted) androidx.compose.foundation.BorderStroke(1.dp, PremiumBlue.copy(alpha = .25f)) else null,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            colors.primary.copy(alpha = if (highlighted) .32f else .12f),
+        ),
     ) {
         Box(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
             Column {
-                Text(title, color = PremiumText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(title, color = colors.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
                     price,
                     modifier = Modifier.padding(top = 4.dp),
-                    color = if (highlighted) PremiumBlue else PremiumText,
+                    color = colors.primary,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(priceCaption, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text(priceCaption, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             Column(
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -295,9 +337,9 @@ private fun PremiumPlanCard(
                         text = it,
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(PremiumCyan)
+                            .background(colors.primary)
                             .padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = Color.White,
+                        color = colors.onPrimary,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -305,7 +347,7 @@ private fun PremiumPlanCard(
                     Text(
                         text = it,
                         modifier = Modifier.padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = colors.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         textDecoration = TextDecoration.LineThrough,
                     )
@@ -315,10 +357,32 @@ private fun PremiumPlanCard(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFBFF, heightDp = 900, widthDp = 412)
+@Preview(
+    name = "Светлая тема",
+    showBackground = true,
+    backgroundColor = 0xFFFDFBFF,
+    heightDp = 900,
+    widthDp = 412,
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+)
 @Composable
-private fun PremiumOfferPrototypePreview() {
-    ScannerTheme {
+private fun PremiumOfferPrototypeLightPreview() {
+    ScannerTheme(ThemeMode.LIGHT) {
+        PremiumOfferPrototypeScreen()
+    }
+}
+
+@Preview(
+    name = "Тёмная тема",
+    showBackground = true,
+    backgroundColor = 0xFF121317,
+    heightDp = 900,
+    widthDp = 412,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PremiumOfferPrototypeDarkPreview() {
+    ScannerTheme(ThemeMode.DARK) {
         PremiumOfferPrototypeScreen()
     }
 }
