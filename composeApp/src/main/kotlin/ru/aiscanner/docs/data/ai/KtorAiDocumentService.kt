@@ -105,10 +105,12 @@ class KtorAiDocumentService(
         if (!response.status.isSuccess()) {
             if (response.status.value == 401) {
                 sessionStore.clearAccessToken()
+                logger.event(trace, "requestRejected status=401 code=tokenRejected")
                 throw AiAccessDeniedException()
             }
             if (response.status.value == 403) {
                 sessionStore.clear()
+                logger.event(trace, "requestRejected status=403 code=accessDenied")
                 throw AiAccessDeniedException()
             }
             val errorCode = runCatching {

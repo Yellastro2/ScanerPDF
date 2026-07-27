@@ -29,7 +29,7 @@ class BackendApiLogger(private val enabled: Boolean) {
     }
 
     fun request(trace: BackendRequestTrace, attempt: Int): Long {
-        debug(trace, "--> POST ${trace.path} attempt=$attempt")
+        debug(trace, "REQUEST_STARTED method=POST path=${trace.path} attempt=$attempt")
         return SystemClock.elapsedRealtime()
     }
 
@@ -43,7 +43,7 @@ class BackendApiLogger(private val enabled: Boolean) {
         val elapsedMillis = SystemClock.elapsedRealtime() - startedAtMillis
         debug(
             trace,
-            "<-- $statusCode ${trace.path} attempt=$attempt " +
+            "REQUEST_FINISHED status=$statusCode path=${trace.path} attempt=$attempt " +
                 "durationMs=$elapsedMillis responseChars=$responseChars",
         )
     }
@@ -53,7 +53,7 @@ class BackendApiLogger(private val enabled: Boolean) {
     }
 
     fun parsed(trace: BackendRequestTrace, details: String) {
-        debug(trace, "PARSED $details")
+        debug(trace, "RESPONSE_PARSED $details")
     }
 
     fun parseFailure(trace: BackendRequestTrace, error: Throwable) {
