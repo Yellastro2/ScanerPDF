@@ -49,11 +49,11 @@ detekt {
 }
 
 android {
-    namespace = "ru.aiscanner.docs"
+    namespace = "com.nla.AIscanerPDF"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "ru.aiscanner.docs"
+        applicationId = "com.nla.AIscanerPDF"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

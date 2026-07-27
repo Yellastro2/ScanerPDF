@@ -1,0 +1,46 @@
+package com.nla.AIscanerPDF.data.repository
+
+import kotlinx.coroutines.CancellationException
+import com.nla.AIscanerPDF.core.AppError
+import com.nla.AIscanerPDF.core.AppResult
+import com.nla.AIscanerPDF.data.ai.AiDocumentService
+import com.nla.AIscanerPDF.data.ai.AiAccessDeniedException
+import com.nla.AIscanerPDF.data.ai.AiNotConfiguredException
+import com.nla.AIscanerPDF.data.ai.DocumentTooLargeException
+import com.nla.AIscanerPDF.domain.model.AiSummary
+import com.nla.AIscanerPDF.domain.model.ContractAnalysis
+import com.nla.AIscanerPDF.domain.model.ExtractedDocumentData
+import com.nla.AIscanerPDF.domain.repository.AiRepository
+import java.io.IOException
+
+/**
+ * Ошибки AI приводятся к типизированным AppError. Текст документа
+ * не логируется и не попадает в сообщения об ошибках (п. 10 ТЗ).
+ */
+class AiRepositoryImpl(private val service: AiDocumentService) : AiRepository {
+
+    override suspend fun summarize(documentId: String, text: String, language: String): AppResult<AiSummary> =
+        safeCall { service.summarize(text, language) }
+
+    override suspend fun extractData(documentId: String, text: String, language: String): AppResult<ExtractedDocumentData> =
+        safeCall { service.extractData(text, language) }
+
+    override suspend fun analyzeContract(documentId: String, text: String, language: String): AppResult<ContractAnalysis> =
+        safeCall { service.analyzeContract(text, language) }
+
+    private inline fun <T> safeCall(block: () -> T): AppResult<T> = try {
+        AppResult.Success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: AiNotConfiguredException) {
+        AppResult.Failure(AppError.AiNotConfigured)
+    } catch (e: DocumentTooLargeException) {
+        AppResult.Failure(AppError.DocumentTooLarge)
+    } catch (e: AiAccessDeniedException) {
+        AppResult.Failure(AppError.AiAccessDenied)
+    } catch (e: IOException) {
+        AppResult.Failure(AppError.NoNetwork)
+    } catch (e: Exception) {
+        AppResult.Failure(AppError.AiUnavailable)
+    }
+}
