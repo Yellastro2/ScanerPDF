@@ -10,6 +10,7 @@ import com.nla.AIscanerPDF.data.backend.BackendAuthService
 import com.nla.AIscanerPDF.data.backend.BackendSession
 import com.nla.AIscanerPDF.data.backend.BackendSessionStore
 import com.nla.AIscanerPDF.domain.model.PurchaseResult
+import com.nla.AIscanerPDF.domain.model.AutoRenewCancellationResult
 import com.nla.AIscanerPDF.domain.model.RestoreResult
 import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
@@ -240,6 +241,15 @@ class RuStoreSubscriptionRepository(
             RestoreResult.Error(null)
         }
 
+    override suspend fun cancelAutoRenew(): AutoRenewCancellationResult = try {
+        status.value = backendAuth.cancelAutoRenew().toSubscriptionStatus()
+        AutoRenewCancellationResult.Success
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        AutoRenewCancellationResult.Error(e.message)
+    }
+
     /** Проверка ранее купленной подписки при запуске и ручном восстановлении. */
     override suspend fun refreshSubscriptionStatus() {
         logger.event("subscription.refresh START")
@@ -344,7 +354,11 @@ class RuStoreSubscriptionRepository(
     }
 
     private fun BackendSession.toSubscriptionStatus(): SubscriptionStatus =
-        SubscriptionStatus.Premium(subscriptionValidUntilMillis)
+        SubscriptionStatus.Premium(
+            expiresAtMillis = subscriptionValidUntilMillis,
+            productId = productId,
+            autoRenewEnabled = autoRenewEnabled,
+        )
 
     private companion object {
         const val HTTP_FORBIDDEN = 403

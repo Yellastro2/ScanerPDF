@@ -2,6 +2,7 @@ package com.nla.AIscanerPDF.data.backend
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
+import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -30,6 +31,7 @@ private data class SubscriptionDto(
     val productId: String,
     val status: String,
     val validUntil: String,
+    val autoRenewEnabled: Boolean? = null,
 )
 
 @Serializable
@@ -37,6 +39,9 @@ private data class BackendErrorDto(
     val error: String,
     val message: String,
 )
+
+@Serializable
+private data class CancelSubscriptionResponseDto(val autoRenewEnabled: Boolean)
 
 class BackendNotConfiguredException : Exception()
 
@@ -132,6 +137,7 @@ class BackendAuthService(
                 purchaseId = purchaseId,
                 productId = dto.subscription.productId,
                 subscriptionValidUntilMillis = dto.subscription.validUntil.toEpochMillis(),
+                autoRenewEnabled = dto.subscription.autoRenewEnabled,
             )
         } catch (e: Exception) {
             logger.parseFailure(trace, e)
@@ -145,6 +151,19 @@ class BackendAuthService(
                 "subscriptionValidUntil=${session.subscriptionValidUntilMillis}",
         )
         return session
+    }
+
+    /** Отключает автопродление через защищенный backend endpoint. */
+    suspend fun cancelAutoRenew(): BackendSession {
+        val stored = sessionStore.read() ?: throw BackendAuthException(statusCode = 401)
+        val response = client.post("$baseUrl/v1/subscriptions/cancel") {
+            bearerAuth(stored.accessToken)
+        }
+        val responseBody = response.bodyAsText()
+        if (!response.status.isSuccess()) throw BackendAuthException(statusCode = response.status.value)
+        val result = AiResponseParser.json.decodeFromString<CancelSubscriptionResponseDto>(responseBody)
+        if (result.autoRenewEnabled) throw BackendAuthException(statusCode = response.status.value)
+        return stored.copy(autoRenewEnabled = false).also(sessionStore::save)
     }
 
     private fun String.toEpochMillis(): Long =

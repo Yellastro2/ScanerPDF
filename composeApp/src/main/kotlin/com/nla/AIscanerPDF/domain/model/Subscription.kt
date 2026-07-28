@@ -2,7 +2,18 @@ package com.nla.AIscanerPDF.domain.model
 
 sealed interface SubscriptionStatus {
     data object Free : SubscriptionStatus
-    data class Premium(val expiresAtMillis: Long?) : SubscriptionStatus
+
+    /**
+     * Подтвержденная платная подписка с метаданными для отображения в интерфейсе.
+     *
+     * [autoRenewEnabled] равен `null`, если источник состояния не передал признак
+     * автопродления.
+     */
+    data class Premium(
+        val expiresAtMillis: Long?,
+        val productId: String = "",
+        val autoRenewEnabled: Boolean? = null,
+    ) : SubscriptionStatus
 }
 
 data class SubscriptionProduct(
@@ -23,6 +34,12 @@ sealed interface PurchaseResult {
 sealed interface RestoreResult {
     data class Success(val restored: Boolean) : RestoreResult
     data class Error(val message: String?) : RestoreResult
+}
+
+/** Результат подтвержденного сервером отключения автопродления. */
+sealed interface AutoRenewCancellationResult {
+    data object Success : AutoRenewCancellationResult
+    data class Error(val message: String?) : AutoRenewCancellationResult
 }
 
 /** Ограничения бесплатной версии задаются конфигурацией (п. 11 ТЗ). */

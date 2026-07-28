@@ -7,6 +7,7 @@ import com.nla.AIscanerPDF.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import com.nla.AIscanerPDF.core.AppResult
 import com.nla.AIscanerPDF.domain.model.AiSummary
+import com.nla.AIscanerPDF.domain.model.AutoRenewCancellationResult
 import com.nla.AIscanerPDF.domain.model.ContractAnalysis
 import com.nla.AIscanerPDF.domain.model.CropCorners
 import com.nla.AIscanerPDF.domain.model.Document
@@ -69,6 +70,7 @@ interface SubscriptionRepository {
     suspend fun loadProducts(): List<SubscriptionProduct>
     suspend fun purchase(productId: String): PurchaseResult
     suspend fun restorePurchases(): RestoreResult
+    suspend fun cancelAutoRenew(): AutoRenewCancellationResult
     suspend fun refreshSubscriptionStatus()
 }
 

@@ -173,4 +173,6 @@
     <string name="premium_purchase_success">Покупка выполнена</string>
     <string name="premium_restored">Покупки восстановлены</string>
     <string name="premium_nothing_to_restore">Активных покупок не найдено</string>
+    <string name="premium_auto_renew_cancelled">Автопродление отключено</string>
+    <string name="premium_auto_renew_cancel_error">Не удалось отключить автопродление</string>
 </resources>

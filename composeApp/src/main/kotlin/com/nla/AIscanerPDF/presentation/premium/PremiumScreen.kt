@@ -25,6 +25,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
+import com.nla.AIscanerPDF.domain.model.SubscriptionStatus
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Экран Premium. Показывает реальные продукты RuStore с ценами из
@@ -50,43 +54,30 @@ fun PremiumScreen(navController: NavHostController, viewModel: PremiumViewModel 
         topBar = { TopAppBar(title = { Text(stringResource(R.string.premium_title)) }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Text(
-                stringResource(R.string.premium_subtitle),
-                style = MaterialTheme.typography.titleMedium,
+        when {
+            state.isLoading -> CircularProgressIndicator(Modifier.padding(padding).padding(32.dp))
+            state.subscription is SubscriptionStatus.Premium -> {
+                val subscription = state.subscription as SubscriptionStatus.Premium
+                PremiumSubscriptionActivePrototypeScreen(
+                    renewalDate = subscription.expiresAtMillis?.let(::formatPremiumDate) ?: "неизвестной даты",
+                    productTitle = state.products.firstOrNull { it.productId == subscription.productId }?.title ?: subscription.productId,
+                    autoRenewEnabled = subscription.autoRenewEnabled,
+                    isCancelling = state.isCancellingAutoRenew,
+                    onCancelAutoRenew = viewModel::onCancelAutoRenew,
+                    modifier = Modifier.padding(padding),
+                )
+            }
+            state.products.isEmpty() -> Text(
+                stringResource(R.string.premium_unavailable),
+                Modifier.padding(padding).padding(24.dp),
             )
-            Text("• " + stringResource(R.string.premium_benefit_pdf), Modifier.padding(top = 16.dp))
-            Text("• " + stringResource(R.string.premium_benefit_ocr), Modifier.padding(top = 8.dp))
-            Text("• " + stringResource(R.string.premium_benefit_ai), Modifier.padding(top = 8.dp))
-
-            when {
-                state.isLoading -> CircularProgressIndicator(Modifier.padding(top = 32.dp))
-                state.isPremium -> Text(
-                    stringResource(R.string.premium_active),
-                    Modifier.padding(top = 32.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                state.products.isEmpty() -> Text(
-                    stringResource(R.string.premium_unavailable),
-                    Modifier.padding(top = 32.dp),
-                )
-                else -> state.products.forEach { product ->
-                    Button(
-                        onClick = { viewModel.onPurchase(product.productId) },
-                        enabled = !state.isPurchasing,
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    ) {
-                        Text("${product.title} — ${product.price}")
-                    }
-                }
-            }
-
-            OutlinedButton(
-                onClick = viewModel::onRestore,
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-            ) {
-                Text(stringResource(R.string.settings_restore))
-            }
+            else -> PremiumOfferPrototypeScreen(
+                products = state.products,
+                isPurchasing = state.isPurchasing,
+                onPurchase = viewModel::onPurchase,
+                onRestore = viewModel::onRestore,
+                modifier = Modifier.padding(padding),
+            )
         }
     }
 }
@@ -97,4 +88,9 @@ private fun PremiumMessage.textRes(): Int = when (this) {
     PremiumMessage.RESTORED -> R.string.premium_restored
     PremiumMessage.NOT_RESTORED -> R.string.premium_nothing_to_restore
     PremiumMessage.PRODUCTS_UNAVAILABLE -> R.string.premium_unavailable
+    PremiumMessage.AUTO_RENEW_CANCELLED -> R.string.premium_auto_renew_cancelled
+    PremiumMessage.AUTO_RENEW_CANCEL_ERROR -> R.string.premium_auto_renew_cancel_error
 }
+
+private fun formatPremiumDate(epochMillis: Long): String =
+    SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date(epochMillis))

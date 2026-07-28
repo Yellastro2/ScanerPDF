@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import com.nla.AIscanerPDF.data.analytics.Analytics
 import com.nla.AIscanerPDF.data.analytics.AnalyticsEvent
 import com.nla.AIscanerPDF.domain.model.PurchaseResult
+import com.nla.AIscanerPDF.domain.model.AutoRenewCancellationResult
 import com.nla.AIscanerPDF.domain.model.RestoreResult
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
 import com.nla.AIscanerPDF.domain.model.SubscriptionStatus
@@ -18,12 +19,14 @@ import com.nla.AIscanerPDF.domain.repository.SubscriptionRepository
 data class PremiumUiState(
     val isLoading: Boolean = true,
     val products: List<SubscriptionProduct> = emptyList(),
+    val subscription: SubscriptionStatus = SubscriptionStatus.Free,
     val isPremium: Boolean = false,
     val isPurchasing: Boolean = false,
+    val isCancellingAutoRenew: Boolean = false,
     val message: PremiumMessage? = null,
 )
 
-enum class PremiumMessage { PURCHASE_SUCCESS, PURCHASE_ERROR, RESTORED, NOT_RESTORED, PRODUCTS_UNAVAILABLE }
+enum class PremiumMessage { PURCHASE_SUCCESS, PURCHASE_ERROR, RESTORED, NOT_RESTORED, PRODUCTS_UNAVAILABLE, AUTO_RENEW_CANCELLED, AUTO_RENEW_CANCEL_ERROR }
 
 class PremiumViewModel(
     private val subscriptions: SubscriptionRepository,
@@ -37,7 +40,12 @@ class PremiumViewModel(
         analytics.logEvent(AnalyticsEvent.PAYWALL_SHOWN)
         viewModelScope.launch {
             subscriptions.subscriptionStatus.collect { status ->
-                _state.update { it.copy(isPremium = status is SubscriptionStatus.Premium) }
+                _state.update {
+                    it.copy(
+                        subscription = status,
+                        isPremium = status is SubscriptionStatus.Premium,
+                    )
+                }
             }
         }
         loadProducts()
@@ -84,6 +92,18 @@ class PremiumViewModel(
                 is RestoreResult.Error -> PremiumMessage.PURCHASE_ERROR
             }
             _state.update { it.copy(message = message) }
+        }
+    }
+
+    fun onCancelAutoRenew() {
+        if (_state.value.isCancellingAutoRenew) return
+        viewModelScope.launch {
+            _state.update { it.copy(isCancellingAutoRenew = true) }
+            val message = when (subscriptions.cancelAutoRenew()) {
+                AutoRenewCancellationResult.Success -> PremiumMessage.AUTO_RENEW_CANCELLED
+                is AutoRenewCancellationResult.Error -> PremiumMessage.AUTO_RENEW_CANCEL_ERROR
+            }
+            _state.update { it.copy(isCancellingAutoRenew = false, message = message) }
         }
     }
 

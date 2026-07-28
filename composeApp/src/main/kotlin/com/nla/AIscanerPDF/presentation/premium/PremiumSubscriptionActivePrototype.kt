@@ -43,12 +43,14 @@ import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 @Composable
 fun PremiumSubscriptionActivePrototypeScreen(
     renewalDate: String = "24 августа 2026",
+    productTitle: String = "Годовой план",
+    autoRenewEnabled: Boolean? = true,
+    isCancelling: Boolean = false,
     onCancelAutoRenew: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
     var showCancelDialog by rememberSaveable { mutableStateOf(false) }
-    var isAutoRenewEnabled by rememberSaveable { mutableStateOf(true) }
 
     Box(
         modifier = modifier
@@ -106,7 +108,7 @@ fun PremiumSubscriptionActivePrototypeScreen(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "Premium · годовой план",
+                        text = "Premium · $productTitle",
                         modifier = Modifier.padding(top = 8.dp),
                         color = colors.primary,
                         style = MaterialTheme.typography.titleSmall,
@@ -119,10 +121,12 @@ fun PremiumSubscriptionActivePrototypeScreen(
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
-                        text = if (isAutoRenewEnabled) {
+                        text = if (autoRenewEnabled == true) {
                             "Автопродление включено"
-                        } else {
+                        } else if (autoRenewEnabled == false) {
                             "Автопродление отключено"
+                        } else {
+                            "Статус автопродления уточняется"
                         },
                         modifier = Modifier.padding(top = 4.dp),
                         color = colors.onSurfaceVariant,
@@ -131,9 +135,10 @@ fun PremiumSubscriptionActivePrototypeScreen(
                 }
             }
 
-            if (isAutoRenewEnabled) {
+            if (autoRenewEnabled == true) {
                 OutlinedButton(
                     onClick = { showCancelDialog = true },
+                    enabled = !isCancelling,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
@@ -172,7 +177,6 @@ fun PremiumSubscriptionActivePrototypeScreen(
                 Button(
                     onClick = {
                         showCancelDialog = false
-                        isAutoRenewEnabled = false
                         onCancelAutoRenew()
                     },
                     colors = ButtonDefaults.buttonColors(

@@ -160,6 +160,12 @@ RUSTORE_PRIVATE_KEY=put_pkcs8_private_key_here
 проверяет подписку через RuStore API V4, сохраняет статус в SQLite и выдаёт
 приложению собственный access token.
 
+В успешном ответе `POST /v1/auth/rustore` сервер также возвращает
+`subscription.productId`, `subscription.validUntil` и
+`subscription.autoRenewEnabled`. Последнее поле может быть `null`, если
+RuStore не передал признак автопродления; клиент не должен трактовать такое
+значение как отключённое автопродление.
+
 ## Подпись release через GitHub Secrets
 
 Keystore и пароли в Git не хранятся. Создайте secrets:

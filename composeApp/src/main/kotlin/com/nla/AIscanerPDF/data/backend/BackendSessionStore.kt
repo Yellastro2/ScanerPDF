@@ -2,6 +2,7 @@ package com.nla.AIscanerPDF.data.backend
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -19,6 +20,7 @@ data class BackendSession(
     val purchaseId: String,
     val productId: String,
     val subscriptionValidUntilMillis: Long,
+    val autoRenewEnabled: Boolean? = null,
 ) {
     fun hasValidToken(nowMillis: Long = System.currentTimeMillis()): Boolean =
         accessToken.isNotBlank() && tokenExpiresAtMillis > nowMillis
@@ -42,6 +44,7 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
         val purchaseId = stringPreferencesKey("purchase_id")
         val productId = stringPreferencesKey("product_id")
         val subscriptionValidUntil = longPreferencesKey("subscription_valid_until")
+        val autoRenewEnabled = booleanPreferencesKey("subscription_auto_renew_enabled")
     }
 
     override suspend fun read(): BackendSession? {
@@ -57,6 +60,7 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             purchaseId = purchaseId,
             productId = productId,
             subscriptionValidUntilMillis = subscriptionValidUntil,
+            autoRenewEnabled = preferences[Keys.autoRenewEnabled],
         )
     }
 
@@ -67,6 +71,11 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             preferences[Keys.purchaseId] = session.purchaseId
             preferences[Keys.productId] = session.productId
             preferences[Keys.subscriptionValidUntil] = session.subscriptionValidUntilMillis
+            if (session.autoRenewEnabled == null) {
+                preferences.remove(Keys.autoRenewEnabled)
+            } else {
+                preferences[Keys.autoRenewEnabled] = session.autoRenewEnabled
+            }
         }
     }
 

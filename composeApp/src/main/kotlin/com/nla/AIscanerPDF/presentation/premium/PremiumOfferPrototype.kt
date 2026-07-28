@@ -27,6 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +47,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nla.AIscanerPDF.domain.model.ThemeMode
+import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 
 /**
@@ -51,9 +56,16 @@ import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
  * Экран намеренно не связан с навигацией, RuStore Pay или [PremiumViewModel].
  */
 @Composable
-fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
+fun PremiumOfferPrototypeScreen(
+    products: List<SubscriptionProduct> = previewProducts,
+    isPurchasing: Boolean = false,
+    onPurchase: (String) -> Unit = {},
+    onRestore: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val colors = MaterialTheme.colorScheme
     val isDarkTheme = isSystemInDarkTheme()
+    var selectedProductId by remember(products) { mutableStateOf(products.firstOrNull()?.productId) }
 
     Column(
         modifier = modifier
@@ -75,7 +87,7 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 28.dp)
-                .clickable { },
+                .clickable(onClick = onRestore),
             color = colors.primary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
@@ -86,35 +98,21 @@ fun PremiumOfferPrototypeScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            PremiumPlanCard(
-                title = "1 месяц",
-                price = "299 ₽ в месяц",
-                priceCaption = "Регулярное продление",
-                colors = colors,
-                isDarkTheme = isDarkTheme,
-            )
-            PremiumPlanCard(
-                title = "1 год",
-                price = "1 490 ₽",
-                priceCaption = "124 ₽ в месяц",
-                oldPrice = "3 588 ₽",
-                discount = "Скидка 58%",
-                highlighted = true,
-                colors = colors,
-                isDarkTheme = isDarkTheme,
-            )
-            PremiumPlanCard(
-                title = "Навсегда",
-                price = "2 990 ₽",
-                priceCaption = "Единоразовый платёж",
-                oldPrice = "9 966 ₽",
-                discount = "Скидка 70%",
-                colors = colors,
-                isDarkTheme = isDarkTheme,
-            )
+            products.forEach { product ->
+                PremiumPlanCard(
+                    title = product.title,
+                    price = product.price,
+                    priceCaption = "Автопродление по окончании периода",
+                    highlighted = selectedProductId == product.productId,
+                    colors = colors,
+                    isDarkTheme = isDarkTheme,
+                    onClick = { selectedProductId = product.productId },
+                )
+            }
 
             Button(
-                onClick = { },
+                onClick = { selectedProductId?.let(onPurchase) },
+                enabled = selectedProductId != null && !isPurchasing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp)
@@ -302,9 +300,10 @@ private fun PremiumPlanCard(
     highlighted: Boolean = false,
     colors: androidx.compose.material3.ColorScheme,
     isDarkTheme: Boolean,
+    onClick: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         color = if (highlighted) {
             colors.primaryContainer
         } else {
@@ -356,6 +355,11 @@ private fun PremiumPlanCard(
         }
     }
 }
+
+private val previewProducts = listOf(
+    SubscriptionProduct("premium_monthly", "1 месяц", "299 ₽ в месяц", com.nla.AIscanerPDF.domain.model.SubscriptionPeriod.MONTHLY),
+    SubscriptionProduct("premium_yearly", "1 год", "1 490 ₽", com.nla.AIscanerPDF.domain.model.SubscriptionPeriod.YEARLY),
+)
 
 @Preview(
     name = "Светлая тема",
