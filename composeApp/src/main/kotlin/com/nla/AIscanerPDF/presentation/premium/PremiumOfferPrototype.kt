@@ -50,6 +50,10 @@ import com.nla.AIscanerPDF.domain.model.ThemeMode
 import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.text.NumberFormat
+import java.util.Locale
 
 /** Paywall, который отображает переданный каталог товаров RuStore. */
 @Composable
@@ -98,6 +102,11 @@ fun PremiumOfferPrototypeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             products.forEach { product ->
+                val discountPercent = when (product.period) {
+                    SubscriptionPeriod.MONTHLY -> null
+                    SubscriptionPeriod.YEARLY -> 58
+                    SubscriptionPeriod.ONE_TIME -> 70
+                }
                 PremiumPlanCard(
                     title = if (product.period == SubscriptionPeriod.ONE_TIME) {
                         "Навсегда"
@@ -110,6 +119,10 @@ fun PremiumOfferPrototypeScreen(
                     } else {
                         "Автопродление по окончании периода"
                     },
+                    oldPrice = discountPercent?.let {
+                        calculateOriginalPriceLabel(product.price, it)
+                    },
+                    discount = discountPercent?.let { "Скидка $it%" },
                     highlighted = selectedProductId == product.productId,
                     colors = colors,
                     isDarkTheme = isDarkTheme,
@@ -248,7 +261,10 @@ private fun DecorativeDocument(primary: Color, modifier: Modifier = Modifier) {
 @Composable
 private fun PremiumFeatures(primary: Color, onPrimary: Color) {
     val features = listOf(
-        "Умное самари" to "Полный анализ документа",
+        "Вычисление границ документа на фото" to "",
+        "Распознавание текста" to "",
+        "Полный анализ документа" to "Извлечение смысла",
+        "Анализ рисков договора" to "Выделяет важные детали",
         "OCR без лимитов" to "Распознавайте всё",
         "AI-реквизиты" to "Извлекает главное",
     )
@@ -281,23 +297,23 @@ private fun FeatureCard(title: String, subtitle: String, primary: Color, onPrima
             .background(Brush.linearGradient(listOf(primary, primary.copy(alpha = 0.72f))))
             .padding(14.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(onPrimary.copy(alpha = .18f))
-                .align(Alignment.TopEnd),
-        ) {
-            Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-                drawCircle(onPrimary.copy(alpha = .9f), radius = size.minDimension / 2)
-                drawCircle(primary, radius = size.minDimension / 5)
-            }
-        }
+//        Box(
+//            modifier = Modifier
+//                .size(42.dp)
+//                .clip(CircleShape)
+//                .background(onPrimary.copy(alpha = .18f))
+//                .align(Alignment.TopEnd),
+//        ) {
+//            Canvas(Modifier.fillMaxSize().padding(10.dp)) {
+//                drawCircle(onPrimary.copy(alpha = .9f), radius = size.minDimension / 2)
+//                drawCircle(primary, radius = size.minDimension / 5)
+//            }
+//        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = 50.dp)
-                .align(Alignment.TopStart),
+//                .padding(end = 50.dp)
+                .align(Alignment.BottomStart),
         ) {
             Text(title, color = onPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
             Text(subtitle, color = onPrimary.copy(alpha = .82f), style = MaterialTheme.typography.labelSmall)
@@ -331,19 +347,26 @@ private fun PremiumPlanCard(
         ),
     ) {
         Box(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
-            Column {
-                Text(title, color = colors.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = if (discount == null) 112.dp else 132.dp),
+            ) {
                 Text(
-                    price,
-                    modifier = Modifier.padding(top = 4.dp),
-                    color = colors.primary,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    title,
+                    color = colors.onSurface,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                 )
-                Text(priceCaption, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    priceCaption,
+                    modifier = Modifier.padding(top = 6.dp),
+                    color = colors.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             Column(
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier = Modifier.align(Alignment.TopEnd),
                 horizontalAlignment = Alignment.End,
             ) {
                 discount?.let {
@@ -357,10 +380,17 @@ private fun PremiumPlanCard(
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
+                Text(
+                    text = price,
+                    modifier = Modifier.padding(top = if (discount == null) 4.dp else 8.dp),
+                    color = colors.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 oldPrice?.let {
                     Text(
                         text = it,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.padding(top = 2.dp),
                         color = colors.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         textDecoration = TextDecoration.LineThrough,
@@ -370,6 +400,30 @@ private fun PremiumPlanCard(
         }
     }
 }
+
+private fun calculateOriginalPriceLabel(
+    actualPriceLabel: String,
+    discountPercent: Int,
+): String? {
+    if (discountPercent !in 1..99) return null
+    val amountMatch = PRICE_AMOUNT_REGEX.find(actualPriceLabel) ?: return null
+    val normalizedAmount = amountMatch.value
+        .replace(" ", "")
+        .replace("\u00A0", "")
+        .replace("\u202F", "")
+        .replace(',', '.')
+    val actualAmount = normalizedAmount.toBigDecimalOrNull() ?: return null
+    val originalAmount = actualAmount
+        .multiply(BigDecimal(100))
+        .divide(BigDecimal(100 - discountPercent), 0, RoundingMode.HALF_UP)
+    val formattedAmount = NumberFormat
+        .getNumberInstance(Locale("ru", "RU"))
+        .format(originalAmount)
+    return actualPriceLabel.replaceRange(amountMatch.range, formattedAmount)
+}
+
+private val PRICE_AMOUNT_REGEX =
+    Regex("""\d+(?:[\s\u00A0\u202F]\d{3})*(?:[.,]\d+)?""")
 
 private val previewProducts = listOf(
     SubscriptionProduct("premium_monthly", "1 месяц", "299 ₽ в месяц", SubscriptionPeriod.MONTHLY),
