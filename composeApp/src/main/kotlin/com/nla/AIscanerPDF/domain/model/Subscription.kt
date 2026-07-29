@@ -27,12 +27,18 @@ enum class SubscriptionPeriod { MONTHLY, YEARLY, ONE_TIME }
 
 sealed interface PurchaseResult {
     data object Success : PurchaseResult
+    /** RuStore завершил оплату, но backend пока не подтвердил активацию. */
+    data object ActivationPending : PurchaseResult
     data object Cancelled : PurchaseResult
     data class Error(val message: String?) : PurchaseResult
 }
 
 sealed interface RestoreResult {
     data class Success(val restored: Boolean) : RestoreResult
+    /** Для чтения покупок требуется обновить короткую VK-сессию Pay SDK. */
+    data object AuthorizationRequired : RestoreResult
+    /** Восстановление не завершено из-за временной ошибки SDK или сети. */
+    data object TemporarilyUnavailable : RestoreResult
     data class Error(val message: String?) : RestoreResult
 }
 

@@ -105,7 +105,7 @@ val dataModule = module {
     single<DocumentRepository> { DocumentRepositoryImpl(get(), get(), get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(androidContext()) }
     single { BackendApiLogger(enabled = BuildConfig.DEBUG) }
-    single { RuStorePayLogger(enabled = BuildConfig.DEBUG) }
+    single { RuStorePayLogger(verboseEnabled = BuildConfig.DEBUG) }
     single<BackendSessionStore> { DataStoreBackendSessionStore(androidContext()) }
     single { BackendAuthService(get(), BuildConfig.AI_BASE_URL, get(), get()) }
     // Mock доступен только в debug; release всегда использует RuStore Pay SDK.

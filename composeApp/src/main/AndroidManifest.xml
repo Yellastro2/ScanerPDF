@@ -15,6 +15,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.ScannerAI.Splash"
+        android:usesCleartextTraffic="true"
         tools:targetApi="35">
 
         <activity

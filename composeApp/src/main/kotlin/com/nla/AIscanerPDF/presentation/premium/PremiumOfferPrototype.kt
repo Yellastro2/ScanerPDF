@@ -59,6 +59,7 @@ import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 fun PremiumOfferPrototypeScreen(
     products: List<SubscriptionProduct> = previewProducts,
     isPurchasing: Boolean = false,
+    isRestoring: Boolean = false,
     onPurchase: (String) -> Unit = {},
     onRestore: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -83,11 +84,11 @@ fun PremiumOfferPrototypeScreen(
         PremiumFeatures(colors.primary, colors.onPrimary)
 
         Text(
-            text = "Восстановить покупки",
+            text = if (isRestoring) "Восстанавливаем…" else "Восстановить покупки",
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 28.dp)
-                .clickable(onClick = onRestore),
+                .clickable(enabled = !isRestoring, onClick = onRestore),
             color = colors.primary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
@@ -112,7 +113,7 @@ fun PremiumOfferPrototypeScreen(
 
             Button(
                 onClick = { selectedProductId?.let(onPurchase) },
-                enabled = selectedProductId != null && !isPurchasing,
+                enabled = selectedProductId != null && !isPurchasing && !isRestoring,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp)

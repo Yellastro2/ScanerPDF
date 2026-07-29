@@ -29,10 +29,25 @@ data class BackendSession(
         subscriptionValidUntilMillis > nowMillis
 }
 
+/**
+ * Покупка, которую RuStore уже завершил, но backend ещё не успел активировать.
+ *
+ * Запись переживает перезапуск процесса, чтобы временная ошибка сети после
+ * оплаты не приводила к потере сценария активации.
+ */
+data class PendingPurchase(
+    val purchaseId: String,
+    val productId: String,
+)
+
 interface BackendSessionStore {
     suspend fun read(): BackendSession?
     suspend fun save(session: BackendSession)
+    suspend fun readPendingPurchase(): PendingPurchase?
+    suspend fun savePendingPurchase(purchase: PendingPurchase)
+    suspend fun clearPendingPurchase()
     suspend fun clearAccessToken()
+    /** Удаляет серверную сессию, не затрагивая ожидающую активации покупку. */
     suspend fun clear()
 }
 
@@ -45,6 +60,8 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
         val productId = stringPreferencesKey("product_id")
         val subscriptionValidUntil = longPreferencesKey("subscription_valid_until")
         val autoRenewEnabled = booleanPreferencesKey("subscription_auto_renew_enabled")
+        val pendingPurchaseId = stringPreferencesKey("pending_purchase_id")
+        val pendingProductId = stringPreferencesKey("pending_product_id")
     }
 
     override suspend fun read(): BackendSession? {
@@ -76,6 +93,29 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             } else {
                 preferences[Keys.autoRenewEnabled] = session.autoRenewEnabled
             }
+            preferences.remove(Keys.pendingPurchaseId)
+            preferences.remove(Keys.pendingProductId)
+        }
+    }
+
+    override suspend fun readPendingPurchase(): PendingPurchase? {
+        val preferences = context.backendSessionDataStore.data.first()
+        val purchaseId = preferences[Keys.pendingPurchaseId] ?: return null
+        val productId = preferences[Keys.pendingProductId] ?: return null
+        return PendingPurchase(purchaseId = purchaseId, productId = productId)
+    }
+
+    override suspend fun savePendingPurchase(purchase: PendingPurchase) {
+        context.backendSessionDataStore.edit { preferences ->
+            preferences[Keys.pendingPurchaseId] = purchase.purchaseId
+            preferences[Keys.pendingProductId] = purchase.productId
+        }
+    }
+
+    override suspend fun clearPendingPurchase() {
+        context.backendSessionDataStore.edit { preferences ->
+            preferences.remove(Keys.pendingPurchaseId)
+            preferences.remove(Keys.pendingProductId)
         }
     }
 
@@ -87,6 +127,13 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
     }
 
     override suspend fun clear() {
-        context.backendSessionDataStore.edit { it.clear() }
+        context.backendSessionDataStore.edit { preferences ->
+            preferences.remove(Keys.accessToken)
+            preferences.remove(Keys.tokenExpiresAt)
+            preferences.remove(Keys.purchaseId)
+            preferences.remove(Keys.productId)
+            preferences.remove(Keys.subscriptionValidUntil)
+            preferences.remove(Keys.autoRenewEnabled)
+        }
     }
 }

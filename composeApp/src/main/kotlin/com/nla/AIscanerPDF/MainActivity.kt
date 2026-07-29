@@ -10,6 +10,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
 
     private val analytics: Analytics by inject()
     private val subscriptions: SubscriptionRepository by inject()
+    private var subscriptionRefreshJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -32,7 +34,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             analytics.logEvent(AnalyticsEvent.APP_OPENED)
-            lifecycleScope.launch { runCatching { subscriptions.refreshSubscriptionStatus() } }
             (subscriptions as? PayDeeplinkHandler)?.onNewIntent(intent)
         }
         setContent {
@@ -42,6 +43,14 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 AppNavGraph(navController)
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (subscriptionRefreshJob?.isActive == true) return
+        subscriptionRefreshJob = lifecycleScope.launch {
+            runCatching { subscriptions.refreshSubscriptionStatus() }
         }
     }
 

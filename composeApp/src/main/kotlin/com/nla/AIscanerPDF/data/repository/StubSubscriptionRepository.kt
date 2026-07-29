@@ -3,6 +3,7 @@ package com.nla.AIscanerPDF.data.repository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.nla.AIscanerPDF.domain.model.PurchaseResult
+import com.nla.AIscanerPDF.domain.model.AutoRenewCancellationResult
 import com.nla.AIscanerPDF.domain.model.RestoreResult
 import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
@@ -29,6 +30,9 @@ class StubSubscriptionRepository : SubscriptionRepository {
         PurchaseResult.Error("Покупки будут доступны после публикации в RuStore")
 
     override suspend fun restorePurchases(): RestoreResult = RestoreResult.Success(restored = false)
+
+    override suspend fun cancelAutoRenew(): AutoRenewCancellationResult =
+        AutoRenewCancellationResult.Error("Отмена автопродления недоступна в заглушке")
 
     override suspend fun refreshSubscriptionStatus() = Unit
 }

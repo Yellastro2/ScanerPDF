@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,6 +27,7 @@ import androidx.navigation.NavHostController
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.domain.model.SubscriptionStatus
+import ru.rustore.sdk.core.util.RuStoreUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,12 +43,19 @@ import java.util.Locale
 fun PremiumScreen(navController: NavHostController, viewModel: PremiumViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     state.message?.let { message ->
         val text = stringResource(message.textRes())
         LaunchedEffect(message) {
-            snackbarHostState.showSnackbar(text)
             viewModel.consumeMessage()
+            if (message == PremiumMessage.RESTORE_AUTHORIZATION_REQUIRED) {
+                val launchFailed =
+                    runCatching { RuStoreUtils.openRuStoreAuthorization(context) }.isFailure
+                if (launchFailed) snackbarHostState.showSnackbar(text)
+            } else {
+                snackbarHostState.showSnackbar(text)
+            }
         }
     }
 
@@ -74,6 +83,7 @@ fun PremiumScreen(navController: NavHostController, viewModel: PremiumViewModel 
             else -> PremiumOfferPrototypeScreen(
                 products = state.products,
                 isPurchasing = state.isPurchasing,
+                isRestoring = state.isRestoring,
                 onPurchase = viewModel::onPurchase,
                 onRestore = viewModel::onRestore,
                 modifier = Modifier.padding(padding),
@@ -84,9 +94,12 @@ fun PremiumScreen(navController: NavHostController, viewModel: PremiumViewModel 
 
 private fun PremiumMessage.textRes(): Int = when (this) {
     PremiumMessage.PURCHASE_SUCCESS -> R.string.premium_purchase_success
+    PremiumMessage.PURCHASE_ACTIVATION_PENDING -> R.string.premium_purchase_activation_pending
     PremiumMessage.PURCHASE_ERROR -> R.string.error_purchase
     PremiumMessage.RESTORED -> R.string.premium_restored
     PremiumMessage.NOT_RESTORED -> R.string.premium_nothing_to_restore
+    PremiumMessage.RESTORE_AUTHORIZATION_REQUIRED -> R.string.premium_restore_authorization_required
+    PremiumMessage.RESTORE_TEMPORARILY_UNAVAILABLE -> R.string.premium_restore_temporarily_unavailable
     PremiumMessage.PRODUCTS_UNAVAILABLE -> R.string.premium_unavailable
     PremiumMessage.AUTO_RENEW_CANCELLED -> R.string.premium_auto_renew_cancelled
     PremiumMessage.AUTO_RENEW_CANCEL_ERROR -> R.string.premium_auto_renew_cancel_error

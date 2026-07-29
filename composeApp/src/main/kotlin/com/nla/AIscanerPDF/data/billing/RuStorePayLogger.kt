@@ -3,16 +3,18 @@ package com.nla.AIscanerPDF.data.billing
 import android.util.Log
 
 /**
- * Debug-диагностика RuStore Pay без вывода полных идентификаторов покупки.
+ * Диагностика RuStore Pay без вывода полных идентификаторов покупки.
+ *
+ * Подробные события пишутся только в debug, а обезличенные ошибки остаются
+ * в release, чтобы различать сбой SDK и недоступность backend.
  */
-class RuStorePayLogger(private val enabled: Boolean) {
+class RuStorePayLogger(private val verboseEnabled: Boolean) {
 
     fun event(message: String) {
-        if (enabled) Log.d(TAG, message)
+        if (verboseEnabled) Log.d(TAG, message)
     }
 
     fun error(message: String, error: Throwable) {
-        if (!enabled) return
         val causes = generateSequence(error) { it.cause }
             .take(MAX_CAUSE_DEPTH)
             .joinToString(" <- ") { cause ->
@@ -39,6 +41,7 @@ class RuStorePayLogger(private val enabled: Boolean) {
 
     private fun String.sanitizedMessage(): String =
         replace(UUID_PATTERN, "<uuid>")
+            .replace(IP_ADDRESS_PATTERN, "<ip>")
             .replace(Regex("\\s+"), " ")
             .take(MAX_MESSAGE_LENGTH)
 
@@ -52,5 +55,6 @@ class RuStorePayLogger(private val enabled: Boolean) {
             "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-" +
                 "[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\\b",
         )
+        val IP_ADDRESS_PATTERN = Regex("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b")
     }
 }

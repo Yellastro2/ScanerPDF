@@ -2,6 +2,8 @@ package com.nla.AIscanerPDF.presentation.premium
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,11 +24,23 @@ data class PremiumUiState(
     val subscription: SubscriptionStatus = SubscriptionStatus.Free,
     val isPremium: Boolean = false,
     val isPurchasing: Boolean = false,
+    val isRestoring: Boolean = false,
     val isCancellingAutoRenew: Boolean = false,
     val message: PremiumMessage? = null,
 )
 
-enum class PremiumMessage { PURCHASE_SUCCESS, PURCHASE_ERROR, RESTORED, NOT_RESTORED, PRODUCTS_UNAVAILABLE, AUTO_RENEW_CANCELLED, AUTO_RENEW_CANCEL_ERROR }
+enum class PremiumMessage {
+    PURCHASE_SUCCESS,
+    PURCHASE_ACTIVATION_PENDING,
+    PURCHASE_ERROR,
+    RESTORED,
+    NOT_RESTORED,
+    RESTORE_AUTHORIZATION_REQUIRED,
+    RESTORE_TEMPORARILY_UNAVAILABLE,
+    PRODUCTS_UNAVAILABLE,
+    AUTO_RENEW_CANCELLED,
+    AUTO_RENEW_CANCEL_ERROR,
+}
 
 class PremiumViewModel(
     private val subscriptions: SubscriptionRepository,
@@ -35,6 +49,7 @@ class PremiumViewModel(
 
     private val _state = MutableStateFlow(PremiumUiState())
     val state: StateFlow<PremiumUiState> = _state.asStateFlow()
+    private var activationRetryJob: Job? = null
 
     init {
         analytics.logEvent(AnalyticsEvent.PAYWALL_SHOWN)
@@ -71,8 +86,13 @@ class PremiumViewModel(
             _state.update { it.copy(isPurchasing = true) }
             val message = when (subscriptions.purchase(productId)) {
                 is PurchaseResult.Success -> {
+                    activationRetryJob?.cancel()
                     analytics.logEvent(AnalyticsEvent.PURCHASE_COMPLETED)
                     PremiumMessage.PURCHASE_SUCCESS
+                }
+                PurchaseResult.ActivationPending -> {
+                    scheduleActivationRetry()
+                    PremiumMessage.PURCHASE_ACTIVATION_PENDING
                 }
                 is PurchaseResult.Cancelled -> null
                 is PurchaseResult.Error -> {
@@ -85,13 +105,23 @@ class PremiumViewModel(
     }
 
     fun onRestore() {
+        if (_state.value.isRestoring) return
         viewModelScope.launch {
+            _state.update { it.copy(isRestoring = true) }
             val message = when (val result = subscriptions.restorePurchases()) {
-                is RestoreResult.Success ->
+                is RestoreResult.Success -> {
+                    if (result.restored) activationRetryJob?.cancel()
                     if (result.restored) PremiumMessage.RESTORED else PremiumMessage.NOT_RESTORED
+                }
+                RestoreResult.AuthorizationRequired ->
+                    PremiumMessage.RESTORE_AUTHORIZATION_REQUIRED
+                RestoreResult.TemporarilyUnavailable -> {
+                    scheduleActivationRetry()
+                    PremiumMessage.RESTORE_TEMPORARILY_UNAVAILABLE
+                }
                 is RestoreResult.Error -> PremiumMessage.PURCHASE_ERROR
             }
-            _state.update { it.copy(message = message) }
+            _state.update { it.copy(isRestoring = false, message = message) }
         }
     }
 
@@ -108,4 +138,20 @@ class PremiumViewModel(
     }
 
     fun consumeMessage() = _state.update { it.copy(message = null) }
+
+    private fun scheduleActivationRetry() {
+        if (activationRetryJob?.isActive == true) return
+        activationRetryJob = viewModelScope.launch {
+            ACTIVATION_RETRY_DELAYS.forEach { retryDelay ->
+                delay(retryDelay)
+                if (_state.value.subscription is SubscriptionStatus.Premium) return@launch
+                runCatching { subscriptions.refreshSubscriptionStatus() }
+                if (_state.value.subscription is SubscriptionStatus.Premium) return@launch
+            }
+        }
+    }
+
+    private companion object {
+        val ACTIVATION_RETRY_DELAYS = listOf(3_000L, 10_000L, 30_000L)
+    }
 }

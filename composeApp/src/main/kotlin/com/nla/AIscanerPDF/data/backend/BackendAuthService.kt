@@ -163,7 +163,9 @@ class BackendAuthService(
         if (!response.status.isSuccess()) throw BackendAuthException(statusCode = response.status.value)
         val result = AiResponseParser.json.decodeFromString<CancelSubscriptionResponseDto>(responseBody)
         if (result.autoRenewEnabled) throw BackendAuthException(statusCode = response.status.value)
-        return stored.copy(autoRenewEnabled = false).also(sessionStore::save)
+        val updatedSession = stored.copy(autoRenewEnabled = false)
+        sessionStore.save(updatedSession)
+        return updatedSession
     }
 
     private fun String.toEpochMillis(): Long =
