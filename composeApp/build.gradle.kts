@@ -48,6 +48,11 @@ val rustoreYearlyId = configuredValue(
     "rustoreYearlyId",
     "premium_yearly",
 )
+val rustoreForeverId = configuredValue(
+    "RUSTORE_FOREVER_ID",
+    "rustoreForeverId",
+    "premium_forever",
+)
 
 detekt {
     buildUponDefaultConfig = true
@@ -82,6 +87,11 @@ android {
             "String",
             "RUSTORE_YEARLY_ID",
             rustoreYearlyId.asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "RUSTORE_FOREVER_ID",
+            rustoreForeverId.asBuildConfigString(),
         )
     }
 

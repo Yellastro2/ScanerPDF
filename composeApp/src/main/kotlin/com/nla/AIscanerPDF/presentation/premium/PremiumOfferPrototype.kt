@@ -47,14 +47,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nla.AIscanerPDF.domain.model.ThemeMode
+import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 
-/**
- * Изолированный макет paywall для просмотра в Compose Preview.
- *
- * Экран намеренно не связан с навигацией, RuStore Pay или [PremiumViewModel].
- */
+/** Paywall, который отображает переданный каталог товаров RuStore. */
 @Composable
 fun PremiumOfferPrototypeScreen(
     products: List<SubscriptionProduct> = previewProducts,
@@ -67,6 +64,7 @@ fun PremiumOfferPrototypeScreen(
     val colors = MaterialTheme.colorScheme
     val isDarkTheme = isSystemInDarkTheme()
     var selectedProductId by remember(products) { mutableStateOf(products.firstOrNull()?.productId) }
+    val selectedProduct = products.firstOrNull { it.productId == selectedProductId }
 
     Column(
         modifier = modifier
@@ -101,9 +99,17 @@ fun PremiumOfferPrototypeScreen(
         ) {
             products.forEach { product ->
                 PremiumPlanCard(
-                    title = product.title,
+                    title = if (product.period == SubscriptionPeriod.ONE_TIME) {
+                        "Навсегда"
+                    } else {
+                        product.title
+                    },
                     price = product.price,
-                    priceCaption = "Автопродление по окончании периода",
+                    priceCaption = if (product.period == SubscriptionPeriod.ONE_TIME) {
+                        "Единоразовая покупка · доступ навсегда"
+                    } else {
+                        "Автопродление по окончании периода"
+                    },
                     highlighted = selectedProductId == product.productId,
                     colors = colors,
                     isDarkTheme = isDarkTheme,
@@ -125,13 +131,21 @@ fun PremiumOfferPrototypeScreen(
                 ),
             ) {
                 Text(
-                    text = "Подписаться",
+                    text = if (selectedProduct?.period == SubscriptionPeriod.ONE_TIME) {
+                        "Купить навсегда"
+                    } else {
+                        "Подписаться"
+                    },
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
             Text(
-                text = "Отмена подписки в любое время",
+                text = if (selectedProduct?.period == SubscriptionPeriod.ONE_TIME) {
+                    "Один платёж без автопродления"
+                } else {
+                    "Отмена подписки в любое время"
+                },
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 textAlign = TextAlign.Center,
                 color = colors.onSurfaceVariant,
@@ -358,8 +372,9 @@ private fun PremiumPlanCard(
 }
 
 private val previewProducts = listOf(
-    SubscriptionProduct("premium_monthly", "1 месяц", "299 ₽ в месяц", com.nla.AIscanerPDF.domain.model.SubscriptionPeriod.MONTHLY),
-    SubscriptionProduct("premium_yearly", "1 год", "1 490 ₽", com.nla.AIscanerPDF.domain.model.SubscriptionPeriod.YEARLY),
+    SubscriptionProduct("premium_monthly", "1 месяц", "299 ₽ в месяц", SubscriptionPeriod.MONTHLY),
+    SubscriptionProduct("premium_yearly", "1 год", "1 490 ₽", SubscriptionPeriod.YEARLY),
+    SubscriptionProduct("premium_forever", "Навсегда", "2 990 ₽", SubscriptionPeriod.ONE_TIME),
 )
 
 @Preview(

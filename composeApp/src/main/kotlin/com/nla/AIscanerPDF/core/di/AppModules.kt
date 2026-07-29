@@ -120,12 +120,14 @@ val dataModule = module {
                 sessionStore = get(),
                 monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
+                foreverProductId = BuildConfig.RUSTORE_FOREVER_ID,
             )
         } else {
             ruStoreLogger.event(
                 "repository SELECTED mode=real package=${androidContext().packageName} " +
                     "consoleAppId=${BuildConfig.RUSTORE_CONSOLE_APP_ID} " +
-                    "products=${BuildConfig.RUSTORE_MONTHLY_ID},${BuildConfig.RUSTORE_YEARLY_ID}",
+                    "products=${BuildConfig.RUSTORE_MONTHLY_ID}," +
+                    "${BuildConfig.RUSTORE_YEARLY_ID},${BuildConfig.RUSTORE_FOREVER_ID}",
             )
             RuStoreSubscriptionRepository(
                 client = RuStorePayClient.instance,
@@ -134,6 +136,7 @@ val dataModule = module {
                 logger = ruStoreLogger,
                 monthlyProductId = BuildConfig.RUSTORE_MONTHLY_ID,
                 yearlyProductId = BuildConfig.RUSTORE_YEARLY_ID,
+                foreverProductId = BuildConfig.RUSTORE_FOREVER_ID,
             )
         }
     }

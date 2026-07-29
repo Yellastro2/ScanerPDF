@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
+import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionStatus
 import ru.rustore.sdk.core.util.RuStoreUtils
 import java.text.SimpleDateFormat
@@ -67,9 +68,14 @@ fun PremiumScreen(navController: NavHostController, viewModel: PremiumViewModel 
             state.isLoading -> CircularProgressIndicator(Modifier.padding(padding).padding(32.dp))
             state.subscription is SubscriptionStatus.Premium -> {
                 val subscription = state.subscription as SubscriptionStatus.Premium
+                val activeProduct =
+                    state.products.firstOrNull { it.productId == subscription.productId }
+                val isLifetime =
+                    subscription.isLifetime || activeProduct?.period == SubscriptionPeriod.ONE_TIME
                 PremiumSubscriptionActivePrototypeScreen(
                     renewalDate = subscription.expiresAtMillis?.let(::formatPremiumDate) ?: "неизвестной даты",
-                    productTitle = state.products.firstOrNull { it.productId == subscription.productId }?.title ?: subscription.productId,
+                    productTitle = activeProduct?.title ?: subscription.productId,
+                    isLifetime = isLifetime,
                     autoRenewEnabled = subscription.autoRenewEnabled,
                     isCancelling = state.isCancellingAutoRenew,
                     onCancelAutoRenew = viewModel::onCancelAutoRenew,

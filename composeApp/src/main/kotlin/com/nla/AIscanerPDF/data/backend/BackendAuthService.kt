@@ -17,6 +17,8 @@ import com.nla.AIscanerPDF.data.ai.AiResponseParser
 private data class RuStoreAuthRequestDto(
     val purchaseId: String,
     val productId: String,
+    val invoiceId: String? = null,
+    val productType: String? = null,
 )
 
 @Serializable
@@ -63,7 +65,12 @@ class BackendAuthService(
 
     val isConfigured: Boolean get() = baseUrl.isNotBlank()
 
-    suspend fun exchangePurchase(purchaseId: String, productId: String): BackendSession {
+    suspend fun exchangePurchase(
+        purchaseId: String,
+        productId: String,
+        invoiceId: String? = null,
+        productType: String? = null,
+    ): BackendSession {
         if (!isConfigured) throw BackendNotConfiguredException()
         val trace = logger.start(
             operation = "auth.rustore",
@@ -75,7 +82,14 @@ class BackendAuthService(
         val response = try {
             client.post("$baseUrl$AUTH_PATH") {
                 contentType(ContentType.Application.Json)
-                setBody(RuStoreAuthRequestDto(purchaseId = purchaseId, productId = productId))
+                setBody(
+                    RuStoreAuthRequestDto(
+                        purchaseId = purchaseId,
+                        productId = productId,
+                        invoiceId = invoiceId,
+                        productType = productType,
+                    ),
+                )
             }
         } catch (e: CancellationException) {
             logger.requestFailure(trace, attempt = 1, startedAtMillis = startedAt, error = e)
@@ -138,6 +152,8 @@ class BackendAuthService(
                 productId = dto.subscription.productId,
                 subscriptionValidUntilMillis = dto.subscription.validUntil.toEpochMillis(),
                 autoRenewEnabled = dto.subscription.autoRenewEnabled,
+                invoiceId = invoiceId,
+                productType = productType,
             )
         } catch (e: Exception) {
             logger.parseFailure(trace, e)

@@ -21,6 +21,8 @@ data class BackendSession(
     val productId: String,
     val subscriptionValidUntilMillis: Long,
     val autoRenewEnabled: Boolean? = null,
+    val invoiceId: String? = null,
+    val productType: String? = null,
 ) {
     fun hasValidToken(nowMillis: Long = System.currentTimeMillis()): Boolean =
         accessToken.isNotBlank() && tokenExpiresAtMillis > nowMillis
@@ -38,6 +40,8 @@ data class BackendSession(
 data class PendingPurchase(
     val purchaseId: String,
     val productId: String,
+    val invoiceId: String? = null,
+    val productType: String? = null,
 )
 
 interface BackendSessionStore {
@@ -60,8 +64,12 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
         val productId = stringPreferencesKey("product_id")
         val subscriptionValidUntil = longPreferencesKey("subscription_valid_until")
         val autoRenewEnabled = booleanPreferencesKey("subscription_auto_renew_enabled")
+        val invoiceId = stringPreferencesKey("purchase_invoice_id")
+        val productType = stringPreferencesKey("purchase_product_type")
         val pendingPurchaseId = stringPreferencesKey("pending_purchase_id")
         val pendingProductId = stringPreferencesKey("pending_product_id")
+        val pendingInvoiceId = stringPreferencesKey("pending_invoice_id")
+        val pendingProductType = stringPreferencesKey("pending_product_type")
     }
 
     override suspend fun read(): BackendSession? {
@@ -78,6 +86,8 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             productId = productId,
             subscriptionValidUntilMillis = subscriptionValidUntil,
             autoRenewEnabled = preferences[Keys.autoRenewEnabled],
+            invoiceId = preferences[Keys.invoiceId],
+            productType = preferences[Keys.productType],
         )
     }
 
@@ -93,8 +103,20 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             } else {
                 preferences[Keys.autoRenewEnabled] = session.autoRenewEnabled
             }
+            if (session.invoiceId == null) {
+                preferences.remove(Keys.invoiceId)
+            } else {
+                preferences[Keys.invoiceId] = session.invoiceId
+            }
+            if (session.productType == null) {
+                preferences.remove(Keys.productType)
+            } else {
+                preferences[Keys.productType] = session.productType
+            }
             preferences.remove(Keys.pendingPurchaseId)
             preferences.remove(Keys.pendingProductId)
+            preferences.remove(Keys.pendingInvoiceId)
+            preferences.remove(Keys.pendingProductType)
         }
     }
 
@@ -102,13 +124,28 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
         val preferences = context.backendSessionDataStore.data.first()
         val purchaseId = preferences[Keys.pendingPurchaseId] ?: return null
         val productId = preferences[Keys.pendingProductId] ?: return null
-        return PendingPurchase(purchaseId = purchaseId, productId = productId)
+        return PendingPurchase(
+            purchaseId = purchaseId,
+            productId = productId,
+            invoiceId = preferences[Keys.pendingInvoiceId],
+            productType = preferences[Keys.pendingProductType],
+        )
     }
 
     override suspend fun savePendingPurchase(purchase: PendingPurchase) {
         context.backendSessionDataStore.edit { preferences ->
             preferences[Keys.pendingPurchaseId] = purchase.purchaseId
             preferences[Keys.pendingProductId] = purchase.productId
+            if (purchase.invoiceId == null) {
+                preferences.remove(Keys.pendingInvoiceId)
+            } else {
+                preferences[Keys.pendingInvoiceId] = purchase.invoiceId
+            }
+            if (purchase.productType == null) {
+                preferences.remove(Keys.pendingProductType)
+            } else {
+                preferences[Keys.pendingProductType] = purchase.productType
+            }
         }
     }
 
@@ -116,6 +153,8 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
         context.backendSessionDataStore.edit { preferences ->
             preferences.remove(Keys.pendingPurchaseId)
             preferences.remove(Keys.pendingProductId)
+            preferences.remove(Keys.pendingInvoiceId)
+            preferences.remove(Keys.pendingProductType)
         }
     }
 
@@ -134,6 +173,8 @@ class DataStoreBackendSessionStore(private val context: Context) : BackendSessio
             preferences.remove(Keys.productId)
             preferences.remove(Keys.subscriptionValidUntil)
             preferences.remove(Keys.autoRenewEnabled)
+            preferences.remove(Keys.invoiceId)
+            preferences.remove(Keys.productType)
         }
     }
 }

@@ -26,6 +26,8 @@ import ru.rustore.sdk.pay.callback.PurchaseEventListener
 import ru.rustore.sdk.pay.model.InvoiceId
 import ru.rustore.sdk.pay.model.PreferredPurchaseType
 import ru.rustore.sdk.pay.model.ProductId
+import ru.rustore.sdk.pay.model.ProductPurchase
+import ru.rustore.sdk.pay.model.ProductPurchaseStatus
 import ru.rustore.sdk.pay.model.Purchase
 import ru.rustore.sdk.pay.model.PurchaseAvailabilityResult
 import ru.rustore.sdk.pay.model.PurchaseId
@@ -47,8 +49,9 @@ interface PayDeeplinkHandler {
 /**
  * Реальная интеграция с RuStore Pay SDK.
  *
- * SDK отвечает за каталог и покупку, а backend проверяет purchaseId через
- * RuStore Public API и остаётся источником истины для доступа к AI.
+ * SDK отвечает за каталог и покупку, а backend проверяет подписку по purchaseId
+ * либо разовую покупку по invoiceId через RuStore Public API и остаётся
+ * источником истины для доступа к AI.
  */
 class RuStoreSubscriptionRepository(
     private val client: RuStorePayClient,
@@ -57,13 +60,15 @@ class RuStoreSubscriptionRepository(
     private val logger: RuStorePayLogger,
     private val monthlyProductId: String,
     private val yearlyProductId: String,
+    private val foreverProductId: String,
 ) : SubscriptionRepository, PayDeeplinkHandler {
 
     private val status = MutableStateFlow<SubscriptionStatus>(SubscriptionStatus.Free)
 
     override val subscriptionStatus: Flow<SubscriptionStatus> = status
 
-    private val productIds: Set<String> get() = setOf(monthlyProductId, yearlyProductId)
+    private val productIds: Set<String>
+        get() = setOf(monthlyProductId, yearlyProductId, foreverProductId)
     private val refreshMutex = Mutex()
 
     override fun onNewIntent(intent: Intent) {
@@ -79,7 +84,16 @@ class RuStoreSubscriptionRepository(
             client.getProductInteractor()
                 .getProducts(productIds.map(::ProductId))
                 .awaitResult()
-                .filter { it.type == ProductType.SUBSCRIPTION }
+                .filter { product ->
+                    val productId = product.productId.value
+                    when (productId) {
+                        foreverProductId ->
+                            product.type == ProductType.NON_CONSUMABLE_PRODUCT
+                        monthlyProductId, yearlyProductId ->
+                            product.type == ProductType.SUBSCRIPTION
+                        else -> false
+                    }
+                }
                 .map { product ->
                     val productId = product.productId.value
                     logger.event(
@@ -90,10 +104,10 @@ class RuStoreSubscriptionRepository(
                         productId = productId,
                         title = product.title.value,
                         price = product.amountLabel.value,
-                        period = if (productId == yearlyProductId) {
-                            SubscriptionPeriod.YEARLY
-                        } else {
-                            SubscriptionPeriod.MONTHLY
+                        period = when (productId) {
+                            yearlyProductId -> SubscriptionPeriod.YEARLY
+                            foreverProductId -> SubscriptionPeriod.ONE_TIME
+                            else -> SubscriptionPeriod.MONTHLY
                         },
                     )
                 }
@@ -178,6 +192,11 @@ class RuStoreSubscriptionRepository(
             logger.event("purchase REJECTED unknownProductId=$productId")
             return PurchaseResult.Error(null)
         }
+        val expectedProductType = if (productId == foreverProductId) {
+            ProductType.NON_CONSUMABLE_PRODUCT
+        } else {
+            ProductType.SUBSCRIPTION
+        }
         logger.event("purchase START productId=$productId")
         return try {
             if (!checkPurchaseAvailability(productId)) return PurchaseResult.Error(null)
@@ -192,7 +211,7 @@ class RuStoreSubscriptionRepository(
                     "purchaseId=${logger.maskedId(result.purchaseId.value)} " +
                     "type=${result.productType} sandbox=${result.sandbox}",
             )
-            if (result.productType != ProductType.SUBSCRIPTION || result.productId.value != productId) {
+            if (result.productType != expectedProductType || result.productId.value != productId) {
                 logger.event(
                     "purchase.sdk INVALID_RESULT expectedProductId=$productId " +
                         "actualProductId=${result.productId.value} type=${result.productType}",
@@ -202,6 +221,8 @@ class RuStoreSubscriptionRepository(
             val pendingPurchase = PendingPurchase(
                 purchaseId = result.purchaseId.value,
                 productId = result.productId.value,
+                invoiceId = result.invoiceId.value,
+                productType = result.productType.name,
             )
             refreshMutex.withLock {
                 persistPendingPurchase(pendingPurchase)
@@ -226,12 +247,14 @@ class RuStoreSubscriptionRepository(
                 e,
             )
             val purchaseId = e.purchaseId?.value
-            if (purchaseId == null || e.productType != ProductType.SUBSCRIPTION) {
+            if (purchaseId == null || e.productType != expectedProductType) {
                 PurchaseResult.Error(null)
             } else {
                 val pendingPurchase = PendingPurchase(
                     purchaseId = purchaseId,
                     productId = e.productId?.value ?: productId,
+                    invoiceId = e.invoiceId?.value,
+                    productType = e.productType?.name,
                 )
                 refreshMutex.withLock {
                     persistPendingPurchase(pendingPurchase)
@@ -306,13 +329,38 @@ class RuStoreSubscriptionRepository(
             throw e
         }
         logger.event("subscription.refresh SDK_SUCCESS purchases=${purchases.size}")
-        val candidates = purchases
-            .filterIsInstance<SubscriptionPurchase>()
-            .filter { purchase ->
-                purchase.productId.value in productIds &&
-                    purchase.status in RESTORABLE_STATUSES
+        val candidates = purchases.mapNotNull { purchase ->
+            when (purchase) {
+                is SubscriptionPurchase -> {
+                    if (
+                        purchase.productId.value in productIds &&
+                        purchase.status in RESTORABLE_SUBSCRIPTION_STATUSES
+                    ) {
+                        purchase.toRestorablePurchase()
+                    } else {
+                        null
+                    }
+                }
+                is ProductPurchase -> {
+                    if (
+                        purchase.productId.value == foreverProductId &&
+                        purchase.productType == ProductType.NON_CONSUMABLE_PRODUCT &&
+                        purchase.status == ProductPurchaseStatus.CONFIRMED
+                    ) {
+                        purchase.toRestorablePurchase()
+                    } else {
+                        null
+                    }
+                }
+                else -> null
             }
-            .sortedByDescending { it.status == SubscriptionPurchaseStatus.ACTIVE }
+        }.sortedByDescending { purchase ->
+            when {
+                purchase.productId == foreverProductId -> 2
+                purchase.status == SubscriptionPurchaseStatus.ACTIVE.name -> 1
+                else -> 0
+            }
+        }
 
         if (candidates.isEmpty()) {
             logger.event("subscription.refresh NO_ACTIVE_CANDIDATES")
@@ -329,8 +377,8 @@ class RuStoreSubscriptionRepository(
         }
         candidates.forEach { purchase ->
             logger.event(
-                "subscription.refresh CANDIDATE productId=${purchase.productId.value} " +
-                    "purchaseId=${logger.maskedId(purchase.purchaseId.value)} " +
+                "subscription.refresh CANDIDATE productId=${purchase.productId} " +
+                    "purchaseId=${logger.maskedId(purchase.purchaseId)} " +
                     "status=${purchase.status} sandbox=${purchase.sandbox}",
             )
         }
@@ -338,15 +386,10 @@ class RuStoreSubscriptionRepository(
         for (purchase in candidates) {
             try {
                 logger.event(
-                    "subscription.verify START productId=${purchase.productId.value} " +
-                        "purchaseId=${logger.maskedId(purchase.purchaseId.value)}",
+                    "subscription.verify START productId=${purchase.productId} " +
+                        "purchaseId=${logger.maskedId(purchase.purchaseId)}",
                 )
-                val session = exchangePurchaseWithRetry(
-                    PendingPurchase(
-                        purchaseId = purchase.purchaseId.value,
-                        productId = purchase.productId.value,
-                    ),
-                )
+                val session = exchangePurchaseWithRetry(purchase.toPendingPurchase())
                 logger.event(
                     "subscription.verify SUCCESS productId=${session.productId} " +
                         "validUntil=${session.subscriptionValidUntilMillis}",
@@ -357,25 +400,25 @@ class RuStoreSubscriptionRepository(
                 throw e
             } catch (e: BackendAuthException) {
                 logger.error(
-                    "subscription.verify BACKEND_REJECTED productId=${purchase.productId.value} " +
+                    "subscription.verify BACKEND_REJECTED productId=${purchase.productId} " +
                         "statusCode=${e.statusCode}",
                     e,
                 )
                 if (e.isPermanentClientError()) {
-                    clearMatchingPendingPurchase(purchase.purchaseId.value)
+                    clearMatchingPendingPurchase(purchase.purchaseId)
                 } else {
                     lastVerificationError = e
                 }
             } catch (e: Exception) {
                 logger.error(
-                    "subscription.verify FAILED productId=${purchase.productId.value}",
+                    "subscription.verify FAILED productId=${purchase.productId}",
                     e,
                 )
                 lastVerificationError = e
             }
         }
 
-        if (useActiveCachedSession(candidates.map { it.productId.value }.toSet())) {
+        if (useActiveCachedSession(candidates.map { it.productId }.toSet())) {
             logger.event("subscription.refresh VERIFIED_CACHE_FALLBACK")
             return
         }
@@ -462,6 +505,8 @@ class RuStoreSubscriptionRepository(
             backendAuth.exchangePurchase(
                 purchaseId = purchase.purchaseId,
                 productId = purchase.productId,
+                invoiceId = purchase.invoiceId,
+                productType = purchase.productType,
             )
         }
 
@@ -507,6 +552,34 @@ class RuStoreSubscriptionRepository(
         }
     }
 
+    private fun SubscriptionPurchase.toRestorablePurchase(): RestorablePurchase =
+        RestorablePurchase(
+            purchaseId = purchaseId.value,
+            invoiceId = invoiceId.value,
+            productId = productId.value,
+            productType = ProductType.SUBSCRIPTION.name,
+            status = status.name,
+            sandbox = sandbox,
+        )
+
+    private fun ProductPurchase.toRestorablePurchase(): RestorablePurchase =
+        RestorablePurchase(
+            purchaseId = purchaseId.value,
+            invoiceId = invoiceId.value,
+            productId = productId.value,
+            productType = productType.name,
+            status = status.name,
+            sandbox = sandbox,
+        )
+
+    private fun RestorablePurchase.toPendingPurchase(): PendingPurchase =
+        PendingPurchase(
+            purchaseId = purchaseId,
+            invoiceId = invoiceId,
+            productId = productId,
+            productType = productType,
+        )
+
     private fun BackendAuthException.isPermanentClientError(): Boolean =
         statusCode in CLIENT_ERROR_RANGE &&
             statusCode != HTTP_REQUEST_TIMEOUT &&
@@ -536,6 +609,7 @@ class RuStoreSubscriptionRepository(
             expiresAtMillis = subscriptionValidUntilMillis,
             productId = productId,
             autoRenewEnabled = autoRenewEnabled,
+            isLifetime = productType == ProductType.NON_CONSUMABLE_PRODUCT.name,
         )
 
     private companion object {
@@ -545,7 +619,7 @@ class RuStoreSubscriptionRepository(
         const val RETRY_DELAY_MILLIS = 500L
         val CLIENT_ERROR_RANGE = 400..499
 
-        val RESTORABLE_STATUSES = setOf(
+        val RESTORABLE_SUBSCRIPTION_STATUSES = setOf(
             SubscriptionPurchaseStatus.ACTIVE,
             SubscriptionPurchaseStatus.PAUSED,
         )
@@ -554,6 +628,15 @@ class RuStoreSubscriptionRepository(
     private data class PendingActivationAttempt(
         val activated: Boolean,
         val error: Exception? = null,
+    )
+
+    private data class RestorablePurchase(
+        val purchaseId: String,
+        val invoiceId: String,
+        val productId: String,
+        val productType: String,
+        val status: String,
+        val sandbox: Boolean,
     )
 }
 

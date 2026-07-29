@@ -24,12 +24,14 @@ class MockRuStoreSubscriptionRepository(
     private val sessionStore: BackendSessionStore,
     private val monthlyProductId: String,
     private val yearlyProductId: String,
+    private val foreverProductId: String,
 ) : SubscriptionRepository {
 
     private val status = MutableStateFlow<SubscriptionStatus>(SubscriptionStatus.Free)
     override val subscriptionStatus: Flow<SubscriptionStatus> = status
 
-    private val productIds: Set<String> get() = setOf(monthlyProductId, yearlyProductId)
+    private val productIds: Set<String>
+        get() = setOf(monthlyProductId, yearlyProductId, foreverProductId)
 
     override suspend fun loadProducts(): List<SubscriptionProduct> = listOf(
         SubscriptionProduct(
@@ -44,15 +46,36 @@ class MockRuStoreSubscriptionRepository(
             price = "Тестовая покупка",
             period = SubscriptionPeriod.YEARLY,
         ),
+        SubscriptionProduct(
+            productId = foreverProductId,
+            title = "Premium навсегда",
+            price = "Тестовая покупка",
+            period = SubscriptionPeriod.ONE_TIME,
+        ),
     )
 
     override suspend fun purchase(productId: String): PurchaseResult {
         if (productId !in productIds) return PurchaseResult.Error(null)
         return try {
-            val session = backendAuth.exchangePurchase(
+            val productType = if (productId == foreverProductId) {
+                "NON_CONSUMABLE_PRODUCT"
+            } else {
+                "SUBSCRIPTION"
+            }
+            val backendSession = backendAuth.exchangePurchase(
                 purchaseId = "debug-${UUID.randomUUID()}",
                 productId = productId,
+                invoiceId = "debug-invoice-${UUID.randomUUID()}",
+                productType = productType,
             )
+            val session = if (productId == foreverProductId) {
+                backendSession.copy(
+                    subscriptionValidUntilMillis = LIFETIME_VALID_UNTIL_MILLIS,
+                    autoRenewEnabled = null,
+                ).also { sessionStore.save(it) }
+            } else {
+                backendSession
+            }
             status.value = session.toSubscriptionStatus()
             PurchaseResult.Success
         } catch (e: CancellationException) {
@@ -74,7 +97,12 @@ class MockRuStoreSubscriptionRepository(
             val restored = if (stored.hasValidToken()) {
                 stored
             } else {
-                backendAuth.exchangePurchase(stored.purchaseId, stored.productId)
+                backendAuth.exchangePurchase(
+                    purchaseId = stored.purchaseId,
+                    productId = stored.productId,
+                    invoiceId = stored.invoiceId,
+                    productType = stored.productType,
+                )
             }
             status.value = restored.toSubscriptionStatus()
             RestoreResult.Success(restored = true)
@@ -105,7 +133,12 @@ class MockRuStoreSubscriptionRepository(
             stored
         } else {
             try {
-                backendAuth.exchangePurchase(stored.purchaseId, stored.productId)
+                backendAuth.exchangePurchase(
+                    purchaseId = stored.purchaseId,
+                    productId = stored.productId,
+                    invoiceId = stored.invoiceId,
+                    productType = stored.productType,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -120,5 +153,10 @@ class MockRuStoreSubscriptionRepository(
             expiresAtMillis = subscriptionValidUntilMillis,
             productId = productId,
             autoRenewEnabled = autoRenewEnabled,
+            isLifetime = productType == "NON_CONSUMABLE_PRODUCT",
         )
+
+    private companion object {
+        const val LIFETIME_VALID_UNTIL_MILLIS = 253_402_300_799_000L
+    }
 }

@@ -34,16 +34,12 @@ import androidx.compose.ui.unit.sp
 import com.nla.AIscanerPDF.domain.model.ThemeMode
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 
-/**
- * Изолированный макет активной Premium-подписки для Compose Preview.
- *
- * [onCancelAutoRenew] намеренно не связан с оплатой: интеграция с RuStore
- * будет добавлена отдельно после согласования сценария.
- */
+/** Экран активной подписки или бессрочного Premium-доступа. */
 @Composable
 fun PremiumSubscriptionActivePrototypeScreen(
     renewalDate: String = "24 августа 2026",
     productTitle: String = "Годовой план",
+    isLifetime: Boolean = false,
     autoRenewEnabled: Boolean? = true,
     isCancelling: Boolean = false,
     onCancelAutoRenew: () -> Unit = {},
@@ -102,7 +98,7 @@ fun PremiumSubscriptionActivePrototypeScreen(
             ) {
                 Column(Modifier.padding(20.dp)) {
                     Text(
-                        text = "Ваша подписка",
+                        text = if (isLifetime) "Ваша покупка" else "Ваша подписка",
                         color = colors.onSurface,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -115,13 +111,19 @@ fun PremiumSubscriptionActivePrototypeScreen(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Действует до $renewalDate",
+                        text = if (isLifetime) {
+                            "Доступ предоставлен навсегда"
+                        } else {
+                            "Действует до $renewalDate"
+                        },
                         modifier = Modifier.padding(top = 18.dp),
                         color = colors.onSurface,
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
-                        text = if (autoRenewEnabled == true) {
+                        text = if (isLifetime) {
+                            "Единоразовая покупка"
+                        } else if (autoRenewEnabled == true) {
                             "Автопродление включено"
                         } else if (autoRenewEnabled == false) {
                             "Автопродление отключено"
@@ -135,7 +137,7 @@ fun PremiumSubscriptionActivePrototypeScreen(
                 }
             }
 
-            if (autoRenewEnabled == true) {
+            if (!isLifetime && autoRenewEnabled == true) {
                 OutlinedButton(
                     onClick = { showCancelDialog = true },
                     enabled = !isCancelling,
@@ -150,7 +152,11 @@ fun PremiumSubscriptionActivePrototypeScreen(
                 }
             }
             Text(
-                text = "Premium останется доступен до $renewalDate",
+                text = if (isLifetime) {
+                    "Premium останется доступен навсегда"
+                } else {
+                    "Premium останется доступен до $renewalDate"
+                },
                 modifier = Modifier.padding(top = 12.dp),
                 color = colors.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
@@ -159,7 +165,7 @@ fun PremiumSubscriptionActivePrototypeScreen(
         }
     }
 
-    if (showCancelDialog) {
+    if (!isLifetime && showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
             containerColor = colors.surface,
@@ -223,5 +229,24 @@ private fun PremiumSubscriptionActiveLightPreview() {
 private fun PremiumSubscriptionActiveDarkPreview() {
     ScannerTheme(ThemeMode.DARK) {
         PremiumSubscriptionActivePrototypeScreen()
+    }
+}
+
+@Preview(
+    name = "Premium навсегда · тёмная",
+    showBackground = true,
+    backgroundColor = 0xFF121317,
+    widthDp = 412,
+    heightDp = 840,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PremiumLifetimeActiveDarkPreview() {
+    ScannerTheme(ThemeMode.DARK) {
+        PremiumSubscriptionActivePrototypeScreen(
+            productTitle = "Навсегда",
+            isLifetime = true,
+            autoRenewEnabled = null,
+        )
     }
 }

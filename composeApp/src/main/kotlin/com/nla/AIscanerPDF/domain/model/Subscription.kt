@@ -4,15 +4,16 @@ sealed interface SubscriptionStatus {
     data object Free : SubscriptionStatus
 
     /**
-     * Подтвержденная платная подписка с метаданными для отображения в интерфейсе.
+     * Подтвержденный Premium-доступ: подписка или бессрочная покупка.
      *
      * [autoRenewEnabled] равен `null`, если источник состояния не передал признак
-     * автопродления.
+     * автопродления. Для бессрочной покупки [isLifetime] равен `true`.
      */
     data class Premium(
         val expiresAtMillis: Long?,
         val productId: String = "",
         val autoRenewEnabled: Boolean? = null,
+        val isLifetime: Boolean = false,
     ) : SubscriptionStatus
 }
 

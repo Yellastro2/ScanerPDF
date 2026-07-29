@@ -37,6 +37,7 @@ RELEASE_BACKEND=https://your-backend.example.com
 RUSTORE_CONSOLE_APP_ID=123456
 RUSTORE_MONTHLY_ID=premium_monthly
 RUSTORE_YEARLY_ID=premium_yearly
+RUSTORE_FOREVER_ID=premium_forever
 
 # true принудительно оставляет debug на mock-покупках
 USE_MOCK_RUSTORE=false
@@ -140,17 +141,22 @@ Pay SDK возвращает покупки VK-пользователя толь
 1. Создайте приложение в [RuStore Console](https://console.rustore.ru), получите
    ID приложения и запишите его в `local.properties` как
    `RUSTORE_CONSOLE_APP_ID`. Это не ID ключа Public API.
-2. Раздел «Монетизация → Подписки»: создайте две подписки с ID
-   `premium_monthly` (1 месяц) и `premium_yearly` (1 год). Другие ID можно
-   задать через `RUSTORE_MONTHLY_ID` и `RUSTORE_YEARLY_ID`.
+2. В разделе монетизации создайте:
+   - подписку `premium_monthly` на 1 месяц;
+   - подписку `premium_yearly` на 1 год;
+   - непотребляемый разовый товар `premium_forever`.
+   Другие ID можно задать через `RUSTORE_MONTHLY_ID`, `RUSTORE_YEARLY_ID` и
+   `RUSTORE_FOREVER_ID`.
 3. Добавьте тестовые аккаунты в sandbox для проверки покупок до публикации.
 4. Deeplink-схема оплат: `scannerai` (уже прописана в манифесте).
 5. Package name приложения в RuStore должен быть `ru.aiscanner.docs`, а
    сертификат установленной сборки должен совпадать с сертификатом в RuStore.
 
 Приложение использует RuStore Pay SDK `10.5.0` через BOM `2026.06.01`.
-Подписки приобретаются одноэтапно (`ONE_STEP`), затем `purchaseId` и
-`productId` отправляются backend. Настройка SDK соответствует
+Подписки и бессрочный товар приобретаются одноэтапно (`ONE_STEP`), затем
+`purchaseId`, `productId`, `invoiceId` и `productType` отправляются backend.
+Приложение считает `premium_forever` активным только для типа
+`NON_CONSUMABLE_PRODUCT` в финальном статусе `CONFIRMED`. Настройка SDK соответствует
 [официальной инструкции RuStore Pay](https://www.rustore.ru/help/sdk/pay/kotlin-java/10-5-0).
 
 Для тестирования настоящей оплаты debug APK нужно подписывать тем же ключом,
@@ -176,6 +182,28 @@ RUSTORE_PRIVATE_KEY=put_pkcs8_private_key_here
 должен быть PKCS#8 в Base64 или PEM и хранится только на сервере. Backend
 проверяет подписку через RuStore API V4, сохраняет статус в SQLite и выдаёт
 приложению собственный access token.
+
+### Требование backend для `premium_forever`
+
+Текущая серверная проверка подписок сама по себе не поддерживает разовый
+непотребляемый товар. До выкладки `premium_forever` backend должен:
+
+1. Принять необязательные `invoiceId` и `productType` в
+   `POST /v1/auth/rustore`, не меняя обработку существующих подписок.
+2. Для `productType=NON_CONSUMABLE_PRODUCT` и
+   `productId=premium_forever` запросить счёт:
+   `GET /public/v2/invoices/{invoiceId}` либо sandbox-вариант
+   `GET /public/sandbox/v2/invoices/{invoiceId}`.
+3. Выдать Premium только если `invoiceStatus=CONFIRMED`, а `purchaseId`,
+   `appId` и `order.itemCode` совпадают с ожидаемыми значениями.
+4. Вернуть прежнюю форму ответа `POST /v1/auth/rustore`: статус `active`,
+   `productId=premium_forever`, бессрочный `validUntil` и
+   `autoRenewEnabled=null`. Endpoint отмены автопродления к такому товару
+   неприменим.
+
+Пока эта ветка проверки не реализована на сервере, Android покажет товар и
+сможет провести оплату через RuStore, но не должен получить подтверждённый
+Premium-доступ от backend.
 
 В успешном ответе `POST /v1/auth/rustore` сервер также возвращает
 `subscription.productId`, `subscription.validUntil` и

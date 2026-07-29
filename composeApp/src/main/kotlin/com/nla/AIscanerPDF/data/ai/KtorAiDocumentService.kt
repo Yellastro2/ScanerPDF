@@ -149,7 +149,12 @@ class KtorAiDocumentService(
         stored: BackendSession,
     ): BackendSession =
         try {
-            backendAuth.exchangePurchase(stored.purchaseId, stored.productId).also {
+            backendAuth.exchangePurchase(
+                purchaseId = stored.purchaseId,
+                productId = stored.productId,
+                invoiceId = stored.invoiceId,
+                productType = stored.productType,
+            ).also {
                 logger.event(trace, "sessionRefreshed productId=${it.productId}")
             }
         } catch (e: CancellationException) {
