@@ -85,22 +85,25 @@ fun AiScreen(navController: NavHostController, viewModel: AiViewModel = koinView
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.onRun(AiMode.SUMMARY) },
-                    enabled = !state.isLoading,
+                    enabled = !state.isBusy,
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.ai_summarize)) }
                 OutlinedButton(
                     onClick = { viewModel.onRun(AiMode.EXTRACTION) },
-                    enabled = !state.isLoading,
+                    enabled = !state.isBusy,
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.ai_extract)) }
             }
             OutlinedButton(
                 onClick = { viewModel.onRun(AiMode.CONTRACT) },
-                enabled = !state.isLoading,
+                enabled = !state.isBusy,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.ai_contract)) }
 
-            if (state.isLoading) {
+            if (state.isRecognizingDocument) {
+                Text(stringResource(R.string.ai_recognizing_document))
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            } else if (state.isLoading) {
                 Text(stringResource(R.string.ai_in_progress))
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }

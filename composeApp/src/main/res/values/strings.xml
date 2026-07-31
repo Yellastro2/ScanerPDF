@@ -65,7 +65,7 @@
     <string name="editor_saving">Сохранение страницы…</string>
 
     <!-- Экран документа -->
-    <string name="document_title">Документ</string>
+    <string name="document_title">Документ от такого то числа</string>
     <string name="document_add_page">Добавить страницу</string>
     <string name="document_export_pdf">Экспорт в PDF</string>
     <string name="document_export_jpg">Экспорт страниц в JPG</string>
@@ -159,10 +159,11 @@
     <string name="error_document_not_found">Документ не найден</string>
 
     <string name="privacy_policy_text">Политика конфиденциальности\n\n1. Все отсканированные изображения и распознанный текст хранятся только на вашем устройстве во внутреннем хранилище приложения.\n\n2. Приложение не отправляет документы, изображения или текст на серверы без вашего явного действия.\n\n3. При запуске AI-анализа на сервер отправляется только распознанный текст документа — после вашего отдельного согласия. Изображения не отправляются.\n\n4. Содержимое документов не записывается в системные логи и не передаётся в аналитику.\n\n5. Вы можете удалить любой документ или все данные приложения в любой момент — файлы удаляются безвозвратно.\n\n6. Аналитика (если включена) собирает только обезличенные события использования без содержимого документов.</string>
-    <string name="ai_no_text">Сначала распознайте текст документа</string>
+    <string name="ai_no_text">Текст документа пока не распознан</string>
     <string name="ai_result_empty">Данные не найдены</string>
     <string name="ai_document_type">Тип документа</string>
     <string name="ai_in_progress">Анализ документа…</string>
+    <string name="ai_recognizing_document">Распознавание документа…</string>
     <string name="home_imported_name">Импорт</string>
     <string name="camera_auto_mode">Авто</string>
     <string name="camera_manual_mode">Вручную</string>

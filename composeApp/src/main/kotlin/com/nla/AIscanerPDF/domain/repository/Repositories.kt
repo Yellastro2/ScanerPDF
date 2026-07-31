@@ -49,7 +49,16 @@ interface ImageProcessingRepository {
 
 interface OcrRepository {
     val isEngineAvailable: Boolean
-    fun recognizeDocument(documentId: String, language: String): Flow<AppResult<OcrProgress>>
+
+    /**
+     * Распознаёт весь документ либо только страницы, у которых recognizedText == null.
+     * Пустая строка означает, что страница уже проверена, но текст на ней не найден.
+     */
+    fun recognizeDocument(
+        documentId: String,
+        language: String,
+        onlyUnrecognizedPages: Boolean = false,
+    ): Flow<AppResult<OcrProgress>>
 }
 
 interface AiRepository {

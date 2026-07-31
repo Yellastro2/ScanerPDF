@@ -10,10 +10,10 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.opencv.android.OpenCVLoader
-import ru.aiscanner.docs.core.DefaultDispatchersProvider
-import ru.aiscanner.docs.data.imageprocessing.OpenCvDocumentCornerDetector
-import ru.aiscanner.docs.domain.geometry.QuadValidator
-import ru.aiscanner.docs.domain.model.CornerDetectionResult
+import com.nla.AIscanerPDF.core.DefaultDispatchersProvider
+import com.nla.AIscanerPDF.data.imageprocessing.OpenCvDocumentCornerDetector
+import com.nla.AIscanerPDF.domain.geometry.QuadValidator
+import com.nla.AIscanerPDF.domain.model.CornerDetectionResult
 
 /**
  * Интеграционные тесты детектора на синтетических изображениях

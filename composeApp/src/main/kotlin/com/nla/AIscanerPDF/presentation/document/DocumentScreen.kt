@@ -52,11 +52,16 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
+import com.nla.AIscanerPDF.domain.model.Document
+import com.nla.AIscanerPDF.domain.model.DocumentPage
+import com.nla.AIscanerPDF.domain.model.DocumentWithPages
 import com.nla.AIscanerPDF.domain.model.ExportQuality
 import com.nla.AIscanerPDF.domain.model.PdfExportOptions
 import com.nla.AIscanerPDF.domain.model.PdfMargins
 import com.nla.AIscanerPDF.domain.model.PdfPageSize
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.nla.AIscanerPDF.presentation.common.ConfirmDialog
 import com.nla.AIscanerPDF.presentation.common.DragDropState
@@ -64,12 +69,12 @@ import com.nla.AIscanerPDF.presentation.common.dragContainer
 import com.nla.AIscanerPDF.presentation.common.LoadingState
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
+import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
@@ -84,47 +89,81 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
         }
     }
 
-    state.error?.let { error ->
-        val message = error.toMessage()
-        LaunchedEffect(error) {
-            snackbarHostState.showSnackbar(message)
-            viewModel.consumeError()
-        }
-    }
-
-    var deletePageId by remember { mutableStateOf<String?>(null) }
-    var showExportDialog by remember { mutableStateOf(false) }
-
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         uri?.let { viewModel.onImportFromGallery(it.toString()) }
     }
 
+    DocumentContent(
+        state = state,
+        onOpenGallery = {
+            galleryLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+        onAddPage = viewModel::onAddPage,
+        onRunOcr = viewModel::onRunOcr,
+        onRunAi = viewModel::onRunAi,
+        onExportPdf = viewModel::onExportPdf,
+        onMovePage = viewModel::onMovePage,
+        onMovePageByIndex = viewModel::onMovePageByIndex,
+        onEditPage = viewModel::onEditPage,
+        onDeletePage = viewModel::onDeletePage,
+        onConsumeError = viewModel::consumeError,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DocumentContent(
+    state: DocumentUiState,
+    onOpenGallery: () -> Unit,
+    onAddPage: () -> Unit,
+    onRunOcr: () -> Unit,
+    onRunAi: () -> Unit,
+    onExportPdf: (PdfExportOptions) -> Unit,
+    onMovePage: (pageId: String, up: Boolean) -> Unit,
+    onMovePageByIndex: (fromIndex: Int, toIndex: Int) -> Unit,
+    onEditPage: (pageId: String) -> Unit,
+    onDeletePage: (pageId: String) -> Unit,
+    onConsumeError: () -> Unit,
+    pageImageModel: (DocumentPage) -> Any? = { page -> page.previewPath ?: page.originalPath },
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    var deletePageId by remember { mutableStateOf<String?>(null) }
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    state.error?.let { error ->
+        val message = error.toMessage()
+        LaunchedEffect(error) {
+            snackbarHostState.showSnackbar(message)
+            onConsumeError()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(state.document?.document?.name ?: stringResource(R.string.document_title))
+                    Text(state.document?.document?.name ?: stringResource(R.string.document_title),
+//                        modifier = Modifier.padding(start = 8.dp),
+                        fontSize = 18.sp)
                 },
                 actions = {
-                    IconButton(onClick = {
-                        galleryLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                        )
-                    }) {
+                    IconButton(onClick = onOpenGallery) {
                         Icon(
                             Icons.Default.AddPhotoAlternate,
                             contentDescription = stringResource(R.string.home_import_gallery),
                         )
                     }
-                    IconButton(onClick = viewModel::onRunOcr) {
+                    IconButton(onClick = onRunOcr) {
                         Icon(
                             Icons.Default.TextSnippet,
                             contentDescription = stringResource(R.string.document_run_ocr),
                         )
                     }
-                    IconButton(onClick = viewModel::onRunAi) {
+                    IconButton(onClick = onRunAi) {
                         Icon(
                             Icons.Default.AutoAwesome,
                             contentDescription = stringResource(R.string.document_ai_analysis),
@@ -140,7 +179,7 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = viewModel::onAddPage) {
+            ExtendedFloatingActionButton(onClick = onAddPage) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Text(stringResource(R.string.document_add_page), Modifier.padding(start = 8.dp))
             }
@@ -161,7 +200,7 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
             else -> {
                 val listState = rememberLazyListState()
                 val dragDropState = remember(listState) {
-                    DragDropState(listState) { from, to -> viewModel.onMovePageByIndex(from, to) }
+                    DragDropState(listState, onMovePageByIndex)
                 }
                 LazyColumn(
                     state = listState,
@@ -190,40 +229,47 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             AsyncImage(
-                                model = page.previewPath ?: page.originalPath,
+                                model = pageImageModel(page),
                                 contentDescription = stringResource(
                                     R.string.document_page_n, page.position + 1,
                                 ),
                                 modifier = Modifier.size(72.dp),
                             )
-                            Text(
-                                stringResource(R.string.document_page_n, page.position + 1),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                            )
-                            IconButton(onClick = { viewModel.onMovePage(page.id, up = true) }) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowUp,
-                                    contentDescription = stringResource(R.string.document_move_up),
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 12.dp),
+                            ) {
+                                Text(
+                                    stringResource(R.string.document_page_n, page.position + 1),
+                                    style = MaterialTheme.typography.titleSmall,
                                 )
-                            }
-                            IconButton(onClick = { viewModel.onMovePage(page.id, up = false) }) {
-                                Icon(
-                                    Icons.Default.KeyboardArrowDown,
-                                    contentDescription = stringResource(R.string.document_move_down),
-                                )
-                            }
-                            IconButton(onClick = { viewModel.onEditPage(page.id) }) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = stringResource(R.string.document_edit_page),
-                                )
-                            }
-                            IconButton(onClick = { deletePageId = page.id }) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = stringResource(R.string.action_delete),
-                                )
+                                Row {
+                                    IconButton(onClick = { onMovePage(page.id, true) }) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowUp,
+                                            contentDescription = stringResource(R.string.document_move_up),
+                                        )
+                                    }
+                                    IconButton(onClick = { onMovePage(page.id, false) }) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowDown,
+                                            contentDescription = stringResource(R.string.document_move_down),
+                                        )
+                                    }
+                                    IconButton(onClick = { onEditPage(page.id) }) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = stringResource(R.string.document_edit_page),
+                                        )
+                                    }
+                                    IconButton(onClick = { deletePageId = page.id }) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = stringResource(R.string.action_delete),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -238,7 +284,7 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
             title = stringResource(R.string.delete_page_title),
             message = stringResource(R.string.delete_page_message),
             onConfirm = {
-                viewModel.onDeletePage(pageId)
+                onDeletePage(pageId)
                 deletePageId = null
             },
             onDismiss = { deletePageId = null },
@@ -249,7 +295,7 @@ fun DocumentScreen(navController: NavHostController, viewModel: DocumentViewMode
         PdfExportDialog(
             onConfirm = { options ->
                 showExportDialog = false
-                viewModel.onExportPdf(options)
+                onExportPdf(options)
             },
             onDismiss = { showExportDialog = false },
         )
@@ -301,4 +347,58 @@ private fun PdfExportDialog(onConfirm: (PdfExportOptions) -> Unit, onDismiss: ()
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DocumentScreenPreview() {
+    ScannerTheme {
+        DocumentContent(
+            state = DocumentUiState(
+                isLoading = false,
+                document = DocumentWithPages(
+                    document = Document(
+                        id = "preview-document",
+                        name = "Скан 31.07.2026 15:43",
+                        createdAt = 0,
+                        updatedAt = 0,
+                        pageCount = 0,
+                        previewPath = null,
+                        hasRecognizedText = false,
+                    ),
+                    pages = listOf(
+                        DocumentPage(
+                            id = "preview-page-1",
+                            documentId = "preview-document",
+                            position = 0,
+                            originalPath = "",
+                            processedPath = null,
+                            previewPath = null,
+                            crop = null,
+                        ),
+                        DocumentPage(
+                            id = "preview-page-2",
+                            documentId = "preview-document",
+                            position = 1,
+                            originalPath = "",
+                            processedPath = null,
+                            previewPath = null,
+                            crop = null,
+                        ),
+                    ),
+                ),
+            ),
+            onOpenGallery = {},
+            onAddPage = {},
+            onRunOcr = {},
+            onRunAi = {},
+            onExportPdf = {},
+            onMovePage = { _, _ -> },
+            onMovePageByIndex = { _, _ -> },
+            onEditPage = {},
+            onDeletePage = {},
+            onConsumeError = {},
+            pageImageModel = { R.drawable.ic_launcher_foreground },
+        )
+    }
 }

@@ -18,6 +18,7 @@ data class DocumentPage(
     val filter: DocumentFilter = DocumentFilter.ORIGINAL,
     val brightness: Float = 0f,
     val contrast: Float = 1f,
+    /** null — OCR ещё не запускался; "" — OCR завершён, но текст не найден. */
     val recognizedText: String? = null,
 )
 

@@ -196,7 +196,7 @@ val viewModelModule = module {
     viewModel { DocumentViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { OcrViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { SettingsViewModel(get(), get()) }
-    viewModel { AiViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { AiViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { PremiumViewModel(get(), get()) }
 }
 

@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -17,16 +18,19 @@ import com.nla.AIscanerPDF.data.analytics.AnalyticsEvent
 import com.nla.AIscanerPDF.domain.model.AiSummary
 import com.nla.AIscanerPDF.domain.model.ContractAnalysis
 import com.nla.AIscanerPDF.domain.model.ExtractedDocumentData
+import com.nla.AIscanerPDF.domain.model.OcrProgress
 import com.nla.AIscanerPDF.domain.repository.DocumentRepository
 import com.nla.AIscanerPDF.domain.repository.SettingsRepository
 import com.nla.AIscanerPDF.domain.usecase.AnalyzeContractUseCase
 import com.nla.AIscanerPDF.domain.usecase.ExtractDocumentDataUseCase
+import com.nla.AIscanerPDF.domain.usecase.RecognizeDocumentTextUseCase
 import com.nla.AIscanerPDF.domain.usecase.SummarizeDocumentUseCase
 
 enum class AiMode { SUMMARY, EXTRACTION, CONTRACT }
 
 data class AiUiState(
     val isLoading: Boolean = false,
+    val isRecognizingDocument: Boolean = false,
     val activeMode: AiMode? = null,
     val hasRecognizedText: Boolean = false,
     val showConsentDialog: Boolean = false,
@@ -34,7 +38,9 @@ data class AiUiState(
     val extraction: ExtractedDocumentData? = null,
     val contract: ContractAnalysis? = null,
     val error: AppError? = null,
-)
+) {
+    val isBusy: Boolean get() = isLoading || isRecognizingDocument
+}
 
 sealed interface AiUiEffect {
     data object OpenPremium : AiUiEffect
@@ -49,6 +55,7 @@ class AiViewModel(
     savedStateHandle: SavedStateHandle,
     private val documents: DocumentRepository,
     private val settings: SettingsRepository,
+    private val recognizeText: RecognizeDocumentTextUseCase,
     private val summarize: SummarizeDocumentUseCase,
     private val extractData: ExtractDocumentDataUseCase,
     private val analyzeContract: AnalyzeContractUseCase,
@@ -73,7 +80,7 @@ class AiViewModel(
     }
 
     fun onRun(mode: AiMode) {
-        if (_state.value.isLoading) return
+        if (_state.value.isBusy) return
         viewModelScope.launch { run(mode) }
     }
 
@@ -95,11 +102,7 @@ class AiViewModel(
     fun consumeError() = _state.update { it.copy(error = null) }
 
     private suspend fun run(mode: AiMode) {
-        val text = loadText()
-        if (text.isBlank()) {
-            _state.update { it.copy(error = AppError.OcrEmpty) }
-            return
-        }
+        val text = prepareRecognizedText(mode) ?: return
         logStart(mode)
         _state.update { it.copy(isLoading = true, activeMode = mode, error = null) }
         val language = "ru"
@@ -134,6 +137,69 @@ class AiViewModel(
                 _effects.send(AiUiEffect.OpenPremium)
             }
             else -> _state.update { it.copy(isLoading = false, error = error) }
+        }
+    }
+
+    /**
+     * Дораспознаёт только страницы с recognizedText == null. Страницы с пустой
+     * строкой уже проверены OCR и повторно не запускаются.
+     */
+    private suspend fun prepareRecognizedText(mode: AiMode): String? {
+        val document = documents.getDocument(documentId)
+        if (document == null) {
+            _state.update { it.copy(error = AppError.DocumentNotFound) }
+            return null
+        }
+
+        if (document.pages.any { it.recognizedText == null }) {
+            val language = settings.settings.first().ocrLanguage
+            var recognitionError: AppError? = null
+            _state.update {
+                it.copy(
+                    isRecognizingDocument = true,
+                    activeMode = mode,
+                    error = null,
+                )
+            }
+            analytics.logEvent(AnalyticsEvent.OCR_STARTED)
+            recognizeText(
+                documentId = documentId,
+                language = language,
+                onlyUnrecognizedPages = true,
+            ).collect { result ->
+                when (result) {
+                    is AppResult.Success -> if (result.value is OcrProgress.Completed) {
+                        analytics.logEvent(AnalyticsEvent.OCR_COMPLETED)
+                    }
+                    is AppResult.Failure -> recognitionError = result.error
+                }
+            }
+            _state.update { it.copy(isRecognizingDocument = false) }
+
+            recognitionError?.let { error ->
+                analytics.logEvent(AnalyticsEvent.OCR_FAILED)
+                onRecognitionFailure(error)
+                return null
+            }
+        }
+
+        val text = loadText()
+        val hasText = text.isNotBlank()
+        _state.update { it.copy(hasRecognizedText = hasText) }
+        if (!hasText) {
+            _state.update { it.copy(error = AppError.OcrEmpty) }
+            return null
+        }
+        return text
+    }
+
+    private suspend fun onRecognitionFailure(error: AppError) {
+        when (error) {
+            is AppError.FreeLimitReached -> {
+                analytics.logEvent(AnalyticsEvent.PAYWALL_SHOWN)
+                _effects.send(AiUiEffect.OpenPremium)
+            }
+            else -> _state.update { it.copy(error = error) }
         }
     }
 

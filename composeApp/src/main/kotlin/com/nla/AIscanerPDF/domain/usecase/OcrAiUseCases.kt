@@ -21,14 +21,18 @@ class RecognizeDocumentTextUseCase(
     private val subscriptions: SubscriptionRepository,
     private val limiter: FreePlanLimiter,
 ) {
-    operator fun invoke(documentId: String, language: String): Flow<AppResult<OcrProgress>> = flow {
+    operator fun invoke(
+        documentId: String,
+        language: String,
+        onlyUnrecognizedPages: Boolean = false,
+    ): Flow<AppResult<OcrProgress>> = flow {
         val status = subscriptions.subscriptionStatus.first()
         val used = settings.settings.first().usedOcrOperations
         if (!limiter.canRunOcr(status, used)) {
             emit(AppResult.Failure(AppError.FreeLimitReached(used)))
             return@flow
         }
-        ocr.recognizeDocument(documentId, language).collect { result ->
+        ocr.recognizeDocument(documentId, language, onlyUnrecognizedPages).collect { result ->
             if (result is AppResult.Success && result.value is OcrProgress.Completed) {
                 settings.incrementOcrOperations()
             }
