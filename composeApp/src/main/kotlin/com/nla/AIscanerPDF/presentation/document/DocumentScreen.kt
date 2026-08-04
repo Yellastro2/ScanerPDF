@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.ConfirmDialog
 import com.nla.AIscanerPDF.presentation.common.DragDropState
 import com.nla.AIscanerPDF.presentation.common.dragContainer
@@ -151,25 +152,46 @@ private fun DocumentContent(
                         fontSize = 18.sp)
                 },
                 actions = {
-                    IconButton(onClick = onOpenGallery) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Импортировать страницу из галереи")
+                            onOpenGallery()
+                        },
+                    ) {
                         Icon(
                             Icons.Default.AddPhotoAlternate,
                             contentDescription = stringResource(R.string.home_import_gallery),
                         )
                     }
-                    IconButton(onClick = onRunOcr) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Распознать текст документа")
+                            onRunOcr()
+                        },
+                    ) {
                         Icon(
                             Icons.Default.TextSnippet,
                             contentDescription = stringResource(R.string.document_run_ocr),
                         )
                     }
-                    IconButton(onClick = onRunAi) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("AI-анализ документа")
+                            onRunAi()
+                        },
+                    ) {
                         Icon(
                             Icons.Default.AutoAwesome,
                             contentDescription = stringResource(R.string.document_ai_analysis),
                         )
                     }
-                    IconButton(onClick = { showExportDialog = true }, enabled = !state.isExporting) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Открыть экспорт PDF")
+                            showExportDialog = true
+                        },
+                        enabled = !state.isExporting,
+                    ) {
                         Icon(
                             Icons.Default.PictureAsPdf,
                             contentDescription = stringResource(R.string.document_export_pdf),
@@ -179,7 +201,12 @@ private fun DocumentContent(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = onAddPage) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    reportButtonClick("Добавить страницу")
+                    onAddPage()
+                },
+            ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Text(stringResource(R.string.document_add_page), Modifier.padding(start = 8.dp))
             }
@@ -245,25 +272,45 @@ private fun DocumentContent(
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                                 Row {
-                                    IconButton(onClick = { onMovePage(page.id, true) }) {
+                                    IconButton(
+                                        onClick = {
+                                            reportButtonClick("Переместить страницу вверх")
+                                            onMovePage(page.id, true)
+                                        },
+                                    ) {
                                         Icon(
                                             Icons.Default.KeyboardArrowUp,
                                             contentDescription = stringResource(R.string.document_move_up),
                                         )
                                     }
-                                    IconButton(onClick = { onMovePage(page.id, false) }) {
+                                    IconButton(
+                                        onClick = {
+                                            reportButtonClick("Переместить страницу вниз")
+                                            onMovePage(page.id, false)
+                                        },
+                                    ) {
                                         Icon(
                                             Icons.Default.KeyboardArrowDown,
                                             contentDescription = stringResource(R.string.document_move_down),
                                         )
                                     }
-                                    IconButton(onClick = { onEditPage(page.id) }) {
+                                    IconButton(
+                                        onClick = {
+                                            reportButtonClick("Редактировать страницу")
+                                            onEditPage(page.id)
+                                        },
+                                    ) {
                                         Icon(
                                             Icons.Default.Edit,
                                             contentDescription = stringResource(R.string.document_edit_page),
                                         )
                                     }
-                                    IconButton(onClick = { deletePageId = page.id }) {
+                                    IconButton(
+                                        onClick = {
+                                            reportButtonClick("Удалить страницу")
+                                            deletePageId = page.id
+                                        },
+                                    ) {
                                         Icon(
                                             Icons.Default.Delete,
                                             contentDescription = stringResource(R.string.action_delete),
@@ -315,36 +362,67 @@ private fun PdfExportDialog(onConfirm: (PdfExportOptions) -> Unit, onDismiss: ()
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.export_page_size), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(pageSize == PdfPageSize.AUTO, { pageSize = PdfPageSize.AUTO },
+                    FilterChip(pageSize == PdfPageSize.AUTO, {
+                        reportButtonClick("Размер PDF Авто")
+                        pageSize = PdfPageSize.AUTO
+                    },
                         { Text(stringResource(R.string.export_size_auto)) })
-                    FilterChip(pageSize == PdfPageSize.A4, { pageSize = PdfPageSize.A4 },
+                    FilterChip(pageSize == PdfPageSize.A4, {
+                        reportButtonClick("Размер PDF A4")
+                        pageSize = PdfPageSize.A4
+                    },
                         { Text(stringResource(R.string.export_size_a4)) })
                 }
                 Text(stringResource(R.string.export_margins), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(margins == PdfMargins.NONE, { margins = PdfMargins.NONE },
+                    FilterChip(margins == PdfMargins.NONE, {
+                        reportButtonClick("Поля PDF без полей")
+                        margins = PdfMargins.NONE
+                    },
                         { Text(stringResource(R.string.export_margins_none)) })
-                    FilterChip(margins == PdfMargins.SMALL, { margins = PdfMargins.SMALL },
+                    FilterChip(margins == PdfMargins.SMALL, {
+                        reportButtonClick("Поля PDF маленькие")
+                        margins = PdfMargins.SMALL
+                    },
                         { Text(stringResource(R.string.export_margins_small)) })
                 }
                 Text(stringResource(R.string.export_quality), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(quality == ExportQuality.LOW, { quality = ExportQuality.LOW },
+                    FilterChip(quality == ExportQuality.LOW, {
+                        reportButtonClick("Качество PDF низкое")
+                        quality = ExportQuality.LOW
+                    },
                         { Text(stringResource(R.string.export_quality_low)) })
-                    FilterChip(quality == ExportQuality.MEDIUM, { quality = ExportQuality.MEDIUM },
+                    FilterChip(quality == ExportQuality.MEDIUM, {
+                        reportButtonClick("Качество PDF среднее")
+                        quality = ExportQuality.MEDIUM
+                    },
                         { Text(stringResource(R.string.export_quality_medium)) })
-                    FilterChip(quality == ExportQuality.HIGH, { quality = ExportQuality.HIGH },
+                    FilterChip(quality == ExportQuality.HIGH, {
+                        reportButtonClick("Качество PDF высокое")
+                        quality = ExportQuality.HIGH
+                    },
                         { Text(stringResource(R.string.export_quality_high)) })
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(PdfExportOptions(pageSize, margins, quality)) }) {
+            TextButton(
+                onClick = {
+                    reportButtonClick("Экспортировать PDF")
+                    onConfirm(PdfExportOptions(pageSize, margins, quality))
+                },
+            ) {
                 Text(stringResource(R.string.document_export_pdf))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            TextButton(
+                onClick = {
+                    reportButtonClick("Отмена экспорта PDF")
+                    onDismiss()
+                },
+            ) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }

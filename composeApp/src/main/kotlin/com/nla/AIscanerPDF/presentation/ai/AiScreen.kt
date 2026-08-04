@@ -32,6 +32,7 @@ import androidx.navigation.NavHostController
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.domain.model.ContractClause
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
 
@@ -84,18 +85,27 @@ fun AiScreen(navController: NavHostController, viewModel: AiViewModel = koinView
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { viewModel.onRun(AiMode.SUMMARY) },
+                    onClick = {
+                        reportButtonClick("AI-сводка")
+                        viewModel.onRun(AiMode.SUMMARY)
+                    },
                     enabled = !state.isBusy,
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.ai_summarize)) }
                 OutlinedButton(
-                    onClick = { viewModel.onRun(AiMode.EXTRACTION) },
+                    onClick = {
+                        reportButtonClick("AI-извлечение данных")
+                        viewModel.onRun(AiMode.EXTRACTION)
+                    },
                     enabled = !state.isBusy,
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.ai_extract)) }
             }
             OutlinedButton(
-                onClick = { viewModel.onRun(AiMode.CONTRACT) },
+                onClick = {
+                    reportButtonClick("AI-анализ договора")
+                    viewModel.onRun(AiMode.CONTRACT)
+                },
                 enabled = !state.isBusy,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.ai_contract)) }
@@ -156,12 +166,22 @@ fun AiScreen(navController: NavHostController, viewModel: AiViewModel = koinView
             title = { Text(stringResource(R.string.ai_consent_title)) },
             text = { Text(stringResource(R.string.ai_consent_message)) },
             confirmButton = {
-                TextButton(onClick = viewModel::onConsentAccepted) {
+                TextButton(
+                    onClick = {
+                        reportButtonClick("Принять согласие AI")
+                        viewModel.onConsentAccepted()
+                    },
+                ) {
                     Text(stringResource(R.string.ai_consent_accept))
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::onConsentDeclined) {
+                TextButton(
+                    onClick = {
+                        reportButtonClick("Отменить согласие AI")
+                        viewModel.onConsentDeclined()
+                    },
+                ) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },

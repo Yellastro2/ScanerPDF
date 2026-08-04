@@ -67,6 +67,7 @@ import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.EmptyState
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
@@ -109,8 +110,12 @@ fun CameraScreen(navController: NavHostController, viewModel: CameraViewModel = 
     if (!hasPermission) {
         PermissionExplanation(
             showSettingsButton = permissionDenied,
-            onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+            onRequest = {
+                reportButtonClick("Разрешить камеру")
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+            },
             onOpenSettings = {
+                reportButtonClick("Открыть настройки приложения")
                 val intent = Intent(
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.fromParts("package", context.packageName, null),
@@ -238,7 +243,12 @@ fun CameraScreen(navController: NavHostController, viewModel: CameraViewModel = 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = viewModel::toggleTorch) {
+            IconButton(
+                onClick = {
+                    reportButtonClick("Фонарик")
+                    viewModel.toggleTorch()
+                },
+            ) {
                 Icon(
                     if (state.torchEnabled) Icons.Default.FlashOff else Icons.Default.FlashOn,
                     contentDescription = stringResource(
@@ -249,7 +259,10 @@ fun CameraScreen(navController: NavHostController, viewModel: CameraViewModel = 
             }
             FilterChip(
                 selected = state.autoDetectEnabled,
-                onClick = viewModel::toggleAutoDetect,
+                onClick = {
+                    reportButtonClick("Режим автоопределения")
+                    viewModel.toggleAutoDetect()
+                },
                 label = {
                     Text(
                         stringResource(
@@ -285,6 +298,7 @@ fun CameraScreen(navController: NavHostController, viewModel: CameraViewModel = 
         ) {
             FilledIconButton(
                 onClick = {
+                    reportButtonClick("Сделать снимок")
                     // Защита от повторных параллельных снимков (быстрые нажатия)
                     if (!viewModel.tryBeginCapture()) return@FilledIconButton
                     scope.launch {
@@ -318,7 +332,13 @@ fun CameraScreen(navController: NavHostController, viewModel: CameraViewModel = 
                 }
             }
             if (state.pageCount > 0) {
-                IconButton(onClick = viewModel::onOpenDocument, modifier = Modifier.padding(start = 24.dp)) {
+                IconButton(
+                    onClick = {
+                        reportButtonClick("Открыть страницы документа")
+                        viewModel.onOpenDocument()
+                    },
+                    modifier = Modifier.padding(start = 24.dp),
+                ) {
                     Icon(
                         Icons.Default.Collections,
                         contentDescription = stringResource(R.string.camera_to_pages),

@@ -32,6 +32,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nla.AIscanerPDF.domain.model.ThemeMode
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 
 /** Экран активной подписки или бессрочного Premium-доступа. */
@@ -139,7 +140,10 @@ fun PremiumSubscriptionActivePrototypeScreen(
 
             if (!isLifetime && autoRenewEnabled == true) {
                 OutlinedButton(
-                    onClick = { showCancelDialog = true },
+                    onClick = {
+                        reportButtonClick("Отменить автопродление")
+                        showCancelDialog = true
+                    },
                     enabled = !isCancelling,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -182,6 +186,7 @@ fun PremiumSubscriptionActivePrototypeScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        reportButtonClick("Подтвердить отмену автопродления")
                         showCancelDialog = false
                         onCancelAutoRenew()
                     },
@@ -194,7 +199,12 @@ fun PremiumSubscriptionActivePrototypeScreen(
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showCancelDialog = false }) {
+                OutlinedButton(
+                    onClick = {
+                        reportButtonClick("Оставить автопродление")
+                        showCancelDialog = false
+                    },
+                ) {
                     Text("Оставить")
                 }
             },

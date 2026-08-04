@@ -21,6 +21,8 @@ import com.nla.AIscanerPDF.domain.repository.SubscriptionRepository
 import com.nla.AIscanerPDF.presentation.navigation.AppNavGraph
 import com.nla.AIscanerPDF.presentation.settings.SettingsViewModel
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
+import io.appmetrica.analytics.AppMetrica
+import io.appmetrica.analytics.AppMetricaConfig
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +33,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        val config = AppMetricaConfig
+            .newConfigBuilder(BuildConfig.APPMETRIKA_KEY)
+            .build()
+
+        AppMetrica.activate(this, config)
+        AppMetrica.enableActivityAutoTracking(application)
+
         enableEdgeToEdge()
         if (savedInstanceState == null) {
             analytics.logEvent(AnalyticsEvent.APP_OPENED)

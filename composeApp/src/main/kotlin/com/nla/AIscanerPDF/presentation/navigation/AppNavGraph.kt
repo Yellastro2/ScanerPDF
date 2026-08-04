@@ -1,10 +1,12 @@
 package com.nla.AIscanerPDF.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.nla.AIscanerPDF.presentation.ai.AiScreen
 import com.nla.AIscanerPDF.presentation.camera.CameraScreen
@@ -15,6 +17,7 @@ import com.nla.AIscanerPDF.presentation.home.HomeScreen
 import com.nla.AIscanerPDF.presentation.ocr.OcrScreen
 import com.nla.AIscanerPDF.presentation.premium.PremiumScreen
 import com.nla.AIscanerPDF.presentation.settings.SettingsScreen
+import io.appmetrica.analytics.AppMetrica
 
 /**
  * Между экранами передаются только идентификаторы (п. 16 ТЗ),
@@ -43,6 +46,9 @@ object Routes {
 
 @Composable
 fun AppNavGraph(navController: NavHostController) {
+    val backStackEntry = navController.currentBackStackEntryAsState().value
+    ScreenOpenAnalytics(route = backStackEntry?.destination?.route)
+
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) { HomeScreen(navController) }
         composable(
@@ -78,4 +84,25 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Routes.SETTINGS) { SettingsScreen(navController) }
         composable(Routes.PREMIUM) { PremiumScreen(navController) }
     }
+}
+
+@Composable
+private fun ScreenOpenAnalytics(route: String?) {
+    LaunchedEffect(route) {
+        val screenName = route?.screenName() ?: return@LaunchedEffect
+        AppMetrica.reportEvent("Открыт экран $screenName")
+    }
+}
+
+private fun String.screenName(): String? = when (this) {
+    Routes.HOME -> "HomeScreen"
+    Routes.CAMERA -> "CameraScreen"
+    Routes.CROP -> "CropScreen"
+    Routes.EDITOR -> "PageEditorScreen"
+    Routes.DOCUMENT -> "DocumentScreen"
+    Routes.OCR -> "OcrScreen"
+    Routes.AI -> "AiScreen"
+    Routes.SETTINGS -> "SettingsScreen"
+    Routes.PREMIUM -> "PremiumScreen"
+    else -> null
 }

@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.nla.AIscanerPDF.domain.model.ThemeMode
 import com.nla.AIscanerPDF.domain.model.SubscriptionPeriod
 import com.nla.AIscanerPDF.domain.model.SubscriptionProduct
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.theme.ScannerTheme
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -98,7 +99,13 @@ fun PremiumOfferPrototypeScreen(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
                 .padding(top = 28.dp)
-                .clickable(enabled = !isRestoring, onClick = onRestore),
+                .clickable(
+                    enabled = !isRestoring,
+                    onClick = {
+                        reportButtonClick("Восстановить покупки")
+                        onRestore()
+                    },
+                ),
             color = colors.primary,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
@@ -134,12 +141,24 @@ fun PremiumOfferPrototypeScreen(
                     highlighted = selectedProductId == product.productId,
                     colors = colors,
                     isDarkTheme = isDarkTheme,
-                    onClick = { selectedProductId = product.productId },
+                    onClick = {
+                        reportButtonClick("Тариф ${product.period.analyticsName()}")
+                        selectedProductId = product.productId
+                    },
                 )
             }
 
             Button(
-                onClick = { selectedProductId?.let(onPurchase) },
+                onClick = {
+                    reportButtonClick(
+                        if (selectedProduct?.period == SubscriptionPeriod.ONE_TIME) {
+                            "Купить навсегда"
+                        } else {
+                            "Подписаться"
+                        },
+                    )
+                    selectedProductId?.let(onPurchase)
+                },
                 enabled = selectedProductId != null && !isPurchasing && !isRestoring,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -461,6 +480,12 @@ private fun calculateOriginalPriceLabel(
 
 private val PRICE_AMOUNT_REGEX =
     Regex("""\d+(?:[\s\u00A0\u202F]\d{3})*(?:[.,]\d+)?""")
+
+private fun SubscriptionPeriod.analyticsName(): String = when (this) {
+    SubscriptionPeriod.MONTHLY -> "месячный"
+    SubscriptionPeriod.YEARLY -> "годовой"
+    SubscriptionPeriod.ONE_TIME -> "навсегда"
+}
 
 private const val FEATURE_SCROLL_SPEED_DP_PER_SECOND = 18f
 private const val NANOS_PER_SECOND = 1_000_000_000f

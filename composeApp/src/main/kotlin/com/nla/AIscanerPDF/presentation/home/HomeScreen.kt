@@ -51,6 +51,7 @@ import coil.compose.AsyncImage
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.domain.model.Document
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.ConfirmDialog
 import com.nla.AIscanerPDF.presentation.common.EmptyState
 import com.nla.AIscanerPDF.presentation.common.toMessage
@@ -101,7 +102,12 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = koin
             TopAppBar(
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
-                    IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Настройки")
+                            navController.navigate(Routes.SETTINGS)
+                        },
+                    ) {
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = stringResource(R.string.action_settings),
@@ -114,7 +120,10 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = koin
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Button(
-                onClick = viewModel::onScanClick,
+                onClick = {
+                    reportButtonClick("Сканировать документ")
+                    viewModel.onScanClick()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 16.dp, end = 16.dp, top = 16.dp)
@@ -130,6 +139,7 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = koin
             }
             OutlinedButton(
                 onClick = {
+                    reportButtonClick("Импортировать изображение из галереи")
                     galleryLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
@@ -195,12 +205,18 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = koin
             },
             confirmButton = {
                 TextButton(onClick = {
+                    reportButtonClick("Сохранить имя документа")
                     viewModel.onRename(doc.id, name)
                     renameCandidate = null
                 }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { renameCandidate = null }) {
+                TextButton(
+                    onClick = {
+                        reportButtonClick("Отмена переименования")
+                        renameCandidate = null
+                    },
+                ) {
                     Text(stringResource(R.string.action_cancel))
                 }
             },
@@ -217,7 +233,13 @@ private fun DocumentRow(
     onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    Card(
+        onClick = {
+            reportButtonClick("Открыть документ")
+            onClick()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -248,29 +270,54 @@ private fun DocumentRow(
                     }
                 }
             }
-            IconButton(onClick = { menuOpen = true }) {
+            IconButton(
+                onClick = {
+                    reportButtonClick("Меню документа")
+                    menuOpen = true
+                },
+            ) {
                 Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.action_more))
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_open)) },
-                    onClick = { menuOpen = false; onClick() },
+                    onClick = {
+                        reportButtonClick("Открыть документ")
+                        menuOpen = false
+                        onClick()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_rename)) },
-                    onClick = { menuOpen = false; onRename() },
+                    onClick = {
+                        reportButtonClick("Переименовать документ")
+                        menuOpen = false
+                        onRename()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_share)) },
-                    onClick = { menuOpen = false; onShare() },
+                    onClick = {
+                        reportButtonClick("Поделиться документом")
+                        menuOpen = false
+                        onShare()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_export)) },
-                    onClick = { menuOpen = false; onShare() },
+                    onClick = {
+                        reportButtonClick("Экспортировать документ")
+                        menuOpen = false
+                        onShare()
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.action_delete)) },
-                    onClick = { menuOpen = false; onDelete() },
+                    onClick = {
+                        reportButtonClick("Удалить документ")
+                        menuOpen = false
+                        onDelete()
+                    },
                 )
             }
         }

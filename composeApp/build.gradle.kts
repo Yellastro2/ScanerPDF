@@ -32,6 +32,7 @@ fun String.asBuildConfigString(): String =
 val debugBackendUrl = configuredValue("DEBUG_BACKEND", "debugBackend")
 val releaseBackendUrl = configuredValue("RELEASE_BACKEND", "releaseBackend")
 val rustoreConsoleAppId = configuredValue("RUSTORE_CONSOLE_APP_ID", "rustoreConsoleAppId")
+val appMetrikaKey = configuredValue("APPMETRIKA_KEY", "appMetrikaKey")
 val rustoreMonthlyId = configuredValue(
     "RUSTORE_MONTHLY_ID",
     "rustoreMonthlyId",
@@ -86,6 +87,11 @@ android {
             "String",
             "RUSTORE_FOREVER_ID",
             rustoreForeverId.asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "APPMETRIKA_KEY",
+            appMetrikaKey.asBuildConfigString(),
         )
     }
 
@@ -199,6 +205,8 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
 
+    implementation(libs.appmetrica.analytics)
+
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)
@@ -207,4 +215,5 @@ dependencies {
     androidTestImplementation(libs.coroutines.test)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
+
 }

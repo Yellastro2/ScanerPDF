@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.core.AppError
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 
 @Composable
 fun ConfirmDialog(
@@ -32,10 +33,21 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text(confirmText) }
+            TextButton(
+                onClick = {
+                    reportButtonClick(confirmText)
+                    onConfirm()
+                },
+            ) { Text(confirmText) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            val cancelText = stringResource(R.string.action_cancel)
+            TextButton(
+                onClick = {
+                    reportButtonClick(cancelText)
+                    onDismiss()
+                },
+            ) { Text(cancelText) }
         },
     )
 }
@@ -78,8 +90,15 @@ fun ErrorState(message: String, onRetry: (() -> Unit)? = null, modifier: Modifie
     ) {
         Text(message, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
         if (onRetry != null) {
-            Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.action_retry))
+            val retryText = stringResource(R.string.action_retry)
+            Button(
+                onClick = {
+                    reportButtonClick(retryText)
+                    onRetry()
+                },
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                Text(retryText)
             }
         }
     }

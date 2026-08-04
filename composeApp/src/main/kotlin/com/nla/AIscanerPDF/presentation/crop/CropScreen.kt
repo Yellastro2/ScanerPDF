@@ -52,6 +52,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.data.imageprocessing.BitmapLoader
 import com.nla.AIscanerPDF.domain.model.CropPoint
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.LoadingState
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
@@ -113,16 +114,31 @@ fun CropScreen(navController: NavHostController, viewModel: CropViewModel = koin
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(onClick = viewModel::onRetake, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = {
+                        reportButtonClick("Переснять страницу")
+                        viewModel.onRetake()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null)
                     Text(stringResource(R.string.crop_retake), Modifier.padding(start = 4.dp))
                 }
-                OutlinedButton(onClick = viewModel::onReset, modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = {
+                        reportButtonClick("Сбросить обрезку")
+                        viewModel.onReset()
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
                     Text(stringResource(R.string.crop_reset), Modifier.padding(start = 4.dp))
                 }
                 OutlinedButton(
-                    onClick = viewModel::onAutoDetect,
+                    onClick = {
+                        reportButtonClick("Автоопределить углы")
+                        viewModel.onAutoDetect()
+                    },
                     enabled = !state.isDetecting,
                     modifier = Modifier.weight(1f),
                 ) {
@@ -130,7 +146,10 @@ fun CropScreen(navController: NavHostController, viewModel: CropViewModel = koin
                 }
             }
             Button(
-                onClick = viewModel::onApply,
+                onClick = {
+                    reportButtonClick("Применить обрезку")
+                    viewModel.onApply()
+                },
                 enabled = state.isValidShape && !state.isApplying,
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             ) {

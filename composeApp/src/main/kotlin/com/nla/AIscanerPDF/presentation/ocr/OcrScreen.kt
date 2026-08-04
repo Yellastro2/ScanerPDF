@@ -38,6 +38,7 @@ import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,12 +66,18 @@ fun OcrScreen(navController: NavHostController, viewModel: OcrViewModel = koinVi
                 title = { Text(stringResource(R.string.ocr_title)) },
                 actions = {
                     IconButton(onClick = {
+                        reportButtonClick("Скопировать текст OCR")
                         clipboard.setText(AnnotatedString(state.fullText))
                         scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
                     }) {
                         Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.ocr_copy))
                     }
-                    IconButton(onClick = viewModel::onExportTxt) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Экспортировать TXT")
+                            viewModel.onExportTxt()
+                        },
+                    ) {
                         Icon(Icons.Default.Share, contentDescription = stringResource(R.string.ocr_export_txt))
                     }
                 },
@@ -87,7 +94,10 @@ fun OcrScreen(navController: NavHostController, viewModel: OcrViewModel = koinVi
                     )
                     LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
                     OutlinedButton(
-                        onClick = viewModel::onCancelRecognition,
+                        onClick = {
+                            reportButtonClick("Отменить распознавание")
+                            viewModel.onCancelRecognition()
+                        },
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
                         Text(stringResource(R.string.ocr_cancel))
@@ -95,7 +105,10 @@ fun OcrScreen(navController: NavHostController, viewModel: OcrViewModel = koinVi
                 }
             } else {
                 Button(
-                    onClick = viewModel::onStartRecognition,
+                    onClick = {
+                        reportButtonClick("Распознать текст")
+                        viewModel.onStartRecognition()
+                    },
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 ) {
                     Icon(Icons.Default.Description, contentDescription = null)
@@ -107,7 +120,10 @@ fun OcrScreen(navController: NavHostController, viewModel: OcrViewModel = koinVi
             }
 
             OutlinedButton(
-                onClick = { navController.navigate(Routes.ai(state.documentId)) },
+                onClick = {
+                    reportButtonClick("Открыть AI-анализ")
+                    navController.navigate(Routes.ai(state.documentId))
+                },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             ) {
                 Text(stringResource(R.string.ai_title))

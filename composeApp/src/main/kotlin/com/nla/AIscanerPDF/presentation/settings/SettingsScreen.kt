@@ -32,6 +32,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.BuildConfig
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.domain.model.ThemeMode
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.ConfirmDialog
 import com.nla.AIscanerPDF.presentation.navigation.Routes
 import androidx.compose.foundation.layout.Arrangement
@@ -59,13 +60,22 @@ fun SettingsScreen(navController: NavHostController, viewModel: SettingsViewMode
                 modifier = Modifier.padding(vertical = 8.dp),
             ) {
                 FilterChip(settings.themeMode == ThemeMode.SYSTEM,
-                    { viewModel.onThemeSelected(ThemeMode.SYSTEM) },
+                    {
+                        reportButtonClick("Тема системная")
+                        viewModel.onThemeSelected(ThemeMode.SYSTEM)
+                    },
                     { Text(stringResource(R.string.settings_theme_system)) })
                 FilterChip(settings.themeMode == ThemeMode.LIGHT,
-                    { viewModel.onThemeSelected(ThemeMode.LIGHT) },
+                    {
+                        reportButtonClick("Тема светлая")
+                        viewModel.onThemeSelected(ThemeMode.LIGHT)
+                    },
                     { Text(stringResource(R.string.settings_theme_light)) })
                 FilterChip(settings.themeMode == ThemeMode.DARK,
-                    { viewModel.onThemeSelected(ThemeMode.DARK) },
+                    {
+                        reportButtonClick("Тема темная")
+                        viewModel.onThemeSelected(ThemeMode.DARK)
+                    },
                     { Text(stringResource(R.string.settings_theme_dark)) })
             }
 
@@ -79,19 +89,37 @@ fun SettingsScreen(navController: NavHostController, viewModel: SettingsViewMode
                 )
                 Switch(
                     checked = settings.autoDetectCorners,
-                    onCheckedChange = viewModel::onAutoDetectChanged,
+                    onCheckedChange = {
+                        reportButtonClick("Автоопределение углов")
+                        viewModel.onAutoDetectChanged(it)
+                    },
                 )
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
-            TextButton(onClick = { showPrivacy = true }) {
+            TextButton(
+                onClick = {
+                    reportButtonClick("Политика конфиденциальности")
+                    showPrivacy = true
+                },
+            ) {
                 Text(stringResource(R.string.settings_privacy))
             }
-            TextButton(onClick = { navController.navigate(Routes.PREMIUM) }) {
+            TextButton(
+                onClick = {
+                    reportButtonClick("Подписка")
+                    navController.navigate(Routes.PREMIUM)
+                },
+            ) {
                 Text(stringResource(R.string.settings_subscription))
             }
-            TextButton(onClick = { showDeleteAll = true }) {
+            TextButton(
+                onClick = {
+                    reportButtonClick("Удалить все данные")
+                    showDeleteAll = true
+                },
+            ) {
                 Text(
                     stringResource(R.string.settings_delete_all),
                     color = MaterialTheme.colorScheme.error,
@@ -128,7 +156,12 @@ fun SettingsScreen(navController: NavHostController, viewModel: SettingsViewMode
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showPrivacy = false }) {
+                TextButton(
+                    onClick = {
+                        reportButtonClick("Закрыть политику конфиденциальности")
+                        showPrivacy = false
+                    },
+                ) {
                     Text(stringResource(R.string.action_done))
                 }
             },

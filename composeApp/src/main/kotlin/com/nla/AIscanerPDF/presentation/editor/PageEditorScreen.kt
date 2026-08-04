@@ -42,6 +42,7 @@ import org.koin.androidx.compose.koinViewModel
 import com.nla.AIscanerPDF.R
 import com.nla.AIscanerPDF.data.imageprocessing.AndroidDocumentImageProcessor
 import com.nla.AIscanerPDF.domain.model.DocumentFilter
+import com.nla.AIscanerPDF.presentation.analytics.reportButtonClick
 import com.nla.AIscanerPDF.presentation.common.LoadingState
 import com.nla.AIscanerPDF.presentation.common.toMessage
 import com.nla.AIscanerPDF.presentation.navigation.Routes
@@ -77,10 +78,20 @@ fun PageEditorScreen(navController: NavHostController, viewModel: PageEditorView
             TopAppBar(
                 title = { Text(stringResource(R.string.editor_title)) },
                 actions = {
-                    IconButton(onClick = viewModel::onRecrop) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Изменить обрезку")
+                            viewModel.onRecrop()
+                        },
+                    ) {
                         Icon(Icons.Default.Crop, contentDescription = stringResource(R.string.editor_recrop))
                     }
-                    IconButton(onClick = viewModel::onRotate) {
+                    IconButton(
+                        onClick = {
+                            reportButtonClick("Повернуть страницу")
+                            viewModel.onRotate()
+                        },
+                    ) {
                         Icon(
                             Icons.Default.Rotate90DegreesCw,
                             contentDescription = stringResource(R.string.editor_rotate),
@@ -118,7 +129,10 @@ fun PageEditorScreen(navController: NavHostController, viewModel: PageEditorView
                 items(DocumentFilter.entries) { filter ->
                     FilterChip(
                         selected = state.filter == filter,
-                        onClick = { viewModel.onFilterSelected(filter) },
+                        onClick = {
+                            reportButtonClick("Фильтр ${filter.analyticsName()}")
+                            viewModel.onFilterSelected(filter)
+                        },
                         label = { Text(filter.label()) },
                     )
                 }
@@ -144,7 +158,10 @@ fun PageEditorScreen(navController: NavHostController, viewModel: PageEditorView
             }
 
             Button(
-                onClick = viewModel::onSave,
+                onClick = {
+                    reportButtonClick("Сохранить страницу")
+                    viewModel.onSave()
+                },
                 enabled = !state.isSaving,
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             ) {
@@ -161,4 +178,12 @@ private fun DocumentFilter.label(): String = when (this) {
     DocumentFilter.ENHANCE -> stringResource(R.string.filter_enhance)
     DocumentFilter.BLACK_WHITE -> stringResource(R.string.filter_bw)
     DocumentFilter.GRAYSCALE -> stringResource(R.string.filter_gray)
+}
+
+private fun DocumentFilter.analyticsName(): String = when (this) {
+    DocumentFilter.ORIGINAL -> "Оригинал"
+    DocumentFilter.COLOR -> "Цвет"
+    DocumentFilter.ENHANCE -> "Улучшение"
+    DocumentFilter.BLACK_WHITE -> "Черно-белый"
+    DocumentFilter.GRAYSCALE -> "Серый"
 }
